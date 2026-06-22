@@ -8,7 +8,16 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort';
 export default tseslint.config(
   // Global ignores
   {
-    ignores: ['eslint.config.mjs', 'dist/**', 'node_modules/**', 'coverage/**', '*.js', '*.cjs'],
+    ignores: [
+      'eslint.config.mjs',
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      '*.js',
+      '*.cjs',
+      'src/generated/**',
+      'prisma/seed.ts',
+    ],
   },
 
   // Base configs
@@ -95,8 +104,16 @@ export default tseslint.config(
             ['^@nestjs'],
             // External packages
             ['^@?\\w'],
-            // Internal aliases
-            ['^@/'],
+            // Internal path aliases
+            [
+              '^@shared/',
+              '^@users-auth/',
+              '^@properties/',
+              '^@publications/',
+              '^@clients/',
+              '^@owners-of-properties/',
+              '^@contracts/',
+            ],
             // Relative imports
             ['^\\.'],
           ],
@@ -153,7 +170,152 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
       'unicorn/consistent-function-scoping': 'off',
+    },
+  },
+
+  // Domain files — allow defensive null checks in equals() and validation
+  {
+    files: ['src/shared/domain/**/*.ts', 'src/**/domain/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+    },
+  },
+
+  // Cross-context import restrictions
+  {
+    files: ['src/properties/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@users-auth/*',
+                '@clients/*',
+                '@contracts/*',
+                '@publications/*',
+                '@owners-of-properties/*',
+              ],
+              message: 'Cross-context imports forbidden. Use domain events.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/publications/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@users-auth/*',
+                '@clients/*',
+                '@contracts/*',
+                '@properties/*',
+                '@owners-of-properties/*',
+              ],
+              message: 'Cross-context imports forbidden. Use domain events.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/clients/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@users-auth/*',
+                '@properties/*',
+                '@contracts/*',
+                '@publications/*',
+                '@owners-of-properties/*',
+              ],
+              message: 'Cross-context imports forbidden. Use domain events.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/owners-of-properties/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@users-auth/*',
+                '@clients/*',
+                '@contracts/*',
+                '@publications/*',
+                '@properties/*',
+              ],
+              message: 'Cross-context imports forbidden. Use domain events.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/contracts/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@users-auth/*',
+                '@clients/*',
+                '@properties/*',
+                '@publications/*',
+                '@owners-of-properties/*',
+              ],
+              message: 'Cross-context imports forbidden. Use domain events.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/users-auth/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@properties/*',
+                '@clients/*',
+                '@contracts/*',
+                '@publications/*',
+                '@owners-of-properties/*',
+              ],
+              message: 'Cross-context imports forbidden. Use domain events.',
+            },
+          ],
+        },
+      ],
     },
   },
 );

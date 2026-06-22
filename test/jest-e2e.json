@@ -5,5 +5,15 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "generated/prisma/client": "<rootDir>/__mocks__/prisma-client.ts",
+    "^@shared/(.*)$": "<rootDir>/../src/shared/$1",
+    "^@users-auth/(.*)$": "<rootDir>/../src/users-auth/$1",
+    "^@properties/(.*)$": "<rootDir>/../src/properties/$1",
+    "^@publications/(.*)$": "<rootDir>/../src/publications/$1",
+    "^@clients/(.*)$": "<rootDir>/../src/clients/$1",
+    "^@owners-of-properties/(.*)$": "<rootDir>/../src/owners-of-properties/$1",
+    "^@contracts/(.*)$": "<rootDir>/../src/contracts/$1"
   }
 }
