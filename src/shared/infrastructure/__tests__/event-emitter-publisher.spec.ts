@@ -18,13 +18,13 @@ describe('NestEventEmitterPublisher', () => {
       eventId: 'evt-1',
       occurredOn: new Date('2024-01-01'),
       aggregateId: 'agg-1',
-      eventName: 'user.created',
+      eventName: 'identity.user.registered',
     };
 
     const emitSpy = jest.spyOn(eventEmitter, 'emit');
     await publisher.publish(event);
 
-    expect(emitSpy).toHaveBeenCalledWith('user.created', event);
+    expect(emitSpy).toHaveBeenCalledWith('identity.user.registered', event);
   });
 
   it('should emit with correct event name', async () => {

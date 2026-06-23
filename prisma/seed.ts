@@ -11,6 +11,7 @@ async function main(): Promise<void> {
     where: { email: 'admin@example.com' },
     update: {},
     create: {
+      id: '00000000-0000-4000-8000-000000000001',
       email: 'admin@example.com',
       passwordHash: 'hashed-password-placeholder',
       firstName: 'Admin',

@@ -20,4 +20,10 @@ export abstract class AggregateRoot<T extends Identifier<unknown>> extends Entit
   clearEvents(): void {
     this._domainEvents.length = 0;
   }
+
+  pullDomainEvents(): IDomainEvent[] {
+    const events = [...this._domainEvents];
+    this._domainEvents.length = 0;
+    return events;
+  }
 }

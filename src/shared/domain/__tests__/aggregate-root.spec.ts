@@ -63,6 +63,30 @@ describe('AggregateRoot', () => {
     expect(agg.domainEvents).toEqual([]);
   });
 
+  it('should pull all domain events and clear them in one call', () => {
+    const agg = new TestAggregate(new TestId('agg-1'), 'Test');
+    const event1 = new TestEvent('agg-1');
+    const event2 = new TestEvent('agg-1');
+    agg.addDomainEvent(event1);
+    agg.addDomainEvent(event2);
+
+    const pulled = agg.pullDomainEvents();
+
+    expect(pulled).toHaveLength(2);
+    expect(pulled[0]).toBe(event1);
+    expect(pulled[1]).toBe(event2);
+    expect(agg.domainEvents).toEqual([]);
+  });
+
+  it('should return an empty array when there are no pending events', () => {
+    const agg = new TestAggregate(new TestId('agg-1'), 'Test');
+
+    const pulled = agg.pullDomainEvents();
+
+    expect(pulled).toEqual([]);
+    expect(agg.domainEvents).toEqual([]);
+  });
+
   it('should inherit Entity equality by id', () => {
     const id = new TestId('same-id');
     const agg1 = new TestAggregate(id, 'A');

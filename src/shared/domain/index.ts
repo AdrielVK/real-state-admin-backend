@@ -13,4 +13,5 @@ export type { UseCase } from './use-case.interface';
 export { DateRange } from './value-objects/date-range.value-object';
 export { Identifier } from './value-objects/identifier';
 export { Money } from './value-objects/money.value-object';
+export { UserRole, UserRoleHelpers } from './value-objects/user-role.enum';
 export { ValueObject, type ValueObjectProps } from './value-objects/value-object';

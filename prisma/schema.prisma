@@ -10,16 +10,18 @@ datasource db {
 enum UserRole {
   ADMIN
   AGENT
+  ADMINISTRATIVE
   CLIENT
+  VISITOR
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String   @id
   email        String   @unique
   passwordHash String   @map("password_hash")
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
-  role         UserRole @default(CLIENT)
+  role         UserRole @default(VISITOR)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

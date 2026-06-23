@@ -1,0 +1,10 @@
+export { User } from './entities/user.entity';
+export { UserPasswordChangedEvent } from './events/user-password-changed.event';
+export { UserRegisteredEvent } from './events/user-registered.event';
+export type { IPasswordHasher } from './ports/password-hasher.port';
+export { IPasswordHasher as IPasswordHasherToken } from './ports/password-hasher.port';
+export type { IUserRepository } from './repositories/user-repository.interface';
+export { IUserRepository as IUserRepositoryToken } from './repositories/user-repository.interface';
+export { PlainPassword } from './value-objects/plain-password.value-object';
+export { UserEmail } from './value-objects/user-email.value-object';
+export { UserId } from './value-objects/user-id.value-object';

@@ -56,7 +56,7 @@ describe('Identifier', () => {
 
   it('should NOT be equal to null or undefined', () => {
     const id = new TestId('abc-123');
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+
     expect(id.equals(null as TestId)).toBe(false);
 
     expect(id.equals(undefined as TestId)).toBe(false);

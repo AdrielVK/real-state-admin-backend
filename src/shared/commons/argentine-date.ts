@@ -1,4 +1,5 @@
-import { DateTime, type DurationUnit } from 'luxon';
+import type { DurationUnits } from 'luxon';
+import { DateTime } from 'luxon';
 
 import { ValueObject, type ValueObjectProps } from '@shared/domain';
 
@@ -48,8 +49,10 @@ export class ArgentineDate extends ValueObject<ArgentineDateProps> {
     return this._dateTime > other._dateTime;
   }
 
-  difference(other: ArgentineDate, unit: DurationUnit = 'days'): number {
-    return this._dateTime.diff(other._dateTime, unit).get(unit);
+  difference(other: ArgentineDate, unit: DurationUnits = 'days'): number {
+    // diff() accepts DurationUnits; get() expects a single DurationUnit
+    const resolvedUnit = Array.isArray(unit) ? (unit[0] ?? 'days') : unit;
+    return this._dateTime.diff(other._dateTime, unit).get(resolvedUnit);
   }
 
   toISO(): string {

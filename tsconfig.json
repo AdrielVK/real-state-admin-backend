@@ -15,12 +15,13 @@
     "outDir": "./dist",
     "paths": {
       "@shared/*": ["./src/shared/*"],
-      "@users-auth/*": ["./src/users-auth/*"],
+      "@identity/*": ["./src/identity/*"],
       "@properties/*": ["./src/properties/*"],
       "@publications/*": ["./src/publications/*"],
       "@clients/*": ["./src/clients/*"],
       "@owners-of-properties/*": ["./src/owners-of-properties/*"],
-      "@contracts/*": ["./src/contracts/*"]
+      "@contracts/*": ["./src/contracts/*"],
+      "@profiles/*": ["./src/profiles/*"]
     },
 
     "incremental": true,

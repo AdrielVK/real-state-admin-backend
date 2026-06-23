@@ -107,12 +107,13 @@ export default tseslint.config(
             // Internal path aliases
             [
               '^@shared/',
-              '^@users-auth/',
+              '^@identity/',
               '^@properties/',
               '^@publications/',
               '^@clients/',
               '^@owners-of-properties/',
               '^@contracts/',
+              '^@profiles/',
             ],
             // Relative imports
             ['^\\.'],
@@ -172,6 +173,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
       'unicorn/consistent-function-scoping': 'off',
     },
   },
@@ -195,11 +197,12 @@ export default tseslint.config(
           patterns: [
             {
               group: [
-                '@users-auth/*',
+                '@identity/*',
                 '@clients/*',
                 '@contracts/*',
                 '@publications/*',
                 '@owners-of-properties/*',
+                '@profiles/*',
               ],
               message: 'Cross-context imports forbidden. Use domain events.',
             },
@@ -217,11 +220,12 @@ export default tseslint.config(
           patterns: [
             {
               group: [
-                '@users-auth/*',
+                '@identity/*',
                 '@clients/*',
                 '@contracts/*',
                 '@properties/*',
                 '@owners-of-properties/*',
+                '@profiles/*',
               ],
               message: 'Cross-context imports forbidden. Use domain events.',
             },
@@ -239,11 +243,12 @@ export default tseslint.config(
           patterns: [
             {
               group: [
-                '@users-auth/*',
+                '@identity/*',
                 '@properties/*',
                 '@contracts/*',
                 '@publications/*',
                 '@owners-of-properties/*',
+                '@profiles/*',
               ],
               message: 'Cross-context imports forbidden. Use domain events.',
             },
@@ -261,11 +266,12 @@ export default tseslint.config(
           patterns: [
             {
               group: [
-                '@users-auth/*',
+                '@identity/*',
                 '@clients/*',
                 '@contracts/*',
                 '@publications/*',
                 '@properties/*',
+                '@profiles/*',
               ],
               message: 'Cross-context imports forbidden. Use domain events.',
             },
@@ -283,11 +289,12 @@ export default tseslint.config(
           patterns: [
             {
               group: [
-                '@users-auth/*',
+                '@identity/*',
                 '@clients/*',
                 '@properties/*',
                 '@publications/*',
                 '@owners-of-properties/*',
+                '@profiles/*',
               ],
               message: 'Cross-context imports forbidden. Use domain events.',
             },
@@ -297,7 +304,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/users-auth/**/*.ts'],
+    files: ['src/identity/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -305,6 +312,30 @@ export default tseslint.config(
           patterns: [
             {
               group: [
+                '@properties/*',
+                '@clients/*',
+                '@contracts/*',
+                '@publications/*',
+                '@owners-of-properties/*',
+                '@profiles/*',
+              ],
+              message: 'Cross-context imports forbidden. Use domain events.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/profiles/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@identity/*',
                 '@properties/*',
                 '@clients/*',
                 '@contracts/*',
