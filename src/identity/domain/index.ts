@@ -1,10 +1,16 @@
-export { User } from './entities/user.entity';
+export { RefreshToken } from './entities/refresh-token.entity';
+export { User } from './entities/user.aggregate';
 export { UserPasswordChangedEvent } from './events/user-password-changed.event';
 export { UserRegisteredEvent } from './events/user-registered.event';
 export type { IPasswordHasher } from './ports/password-hasher.port';
 export { IPasswordHasher as IPasswordHasherToken } from './ports/password-hasher.port';
+export type { IRefreshTokenRepository } from './ports/refresh-token-repository.port';
+export { IRefreshTokenRepositoryToken } from './ports/refresh-token-repository.port';
+export type { ITokenService, TokenPayload } from './ports/token-service.port';
+export { ITokenServiceToken } from './ports/token-service.port';
 export type { IUserRepository } from './repositories/user-repository.interface';
 export { IUserRepository as IUserRepositoryToken } from './repositories/user-repository.interface';
 export { PlainPassword } from './value-objects/plain-password.value-object';
+export { RefreshTokenId } from './value-objects/refresh-token-id.value-object';
 export { UserEmail } from './value-objects/user-email.value-object';
 export { UserId } from './value-objects/user-id.value-object';

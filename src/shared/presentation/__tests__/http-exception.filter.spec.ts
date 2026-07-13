@@ -68,7 +68,7 @@ describe('GlobalExceptionFilter', () => {
     });
   });
 
-  it('should handle HttpException', () => {
+  it('should handle HttpException and map status to the matching ErrorCode', () => {
     const exception = new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     filter.catch(exception, mockHost);
 
@@ -76,8 +76,22 @@ describe('GlobalExceptionFilter', () => {
     expect(mockResponse.json).toHaveBeenCalledWith({
       success: false,
       error: {
-        code: ErrorCode.BAD_REQUEST,
+        code: ErrorCode.FORBIDDEN,
         message: 'Forbidden',
+      },
+    });
+  });
+
+  it('should map HttpException 401 to UNAUTHORIZED code', () => {
+    const exception = new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    filter.catch(exception, mockHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.UNAUTHORIZED);
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: ErrorCode.UNAUTHORIZED,
+        message: 'Unauthorized',
       },
     });
   });

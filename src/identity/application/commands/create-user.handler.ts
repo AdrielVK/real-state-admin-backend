@@ -1,6 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { ICommand, ICommandHandler, IDomainEventPublisher } from '@shared/domain';
+import {
+  ErrorCode,
+  type ICommand,
+  type ICommandHandler,
+  type IDomainEventPublisher,
+} from '@shared/domain';
+import { AppException } from '@shared/presentation';
 
 import {
   type IPasswordHasher,
@@ -33,6 +39,12 @@ export class CreateUserHandler implements ICommandHandler<CreateUserCommand, Use
 
   async execute(command: CreateUserCommand): Promise<User> {
     const email = new UserEmail(command.email);
+
+    const existing = await this.userRepository.findByEmail(email);
+    if (existing) {
+      throw new AppException(ErrorCode.CONFLICT, 'El email ya está registrado');
+    }
+
     const plainPassword = PlainPassword.create(command.password);
 
     const user = await User.register(

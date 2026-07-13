@@ -15,7 +15,10 @@ export class EnvironmentVariables {
   JWT_SECRET!: string;
 
   @IsString()
-  JWT_EXPIRATION!: string;
+  JWT_ACCESS_EXPIRATION!: string;
+
+  @IsString()
+  JWT_REFRESH_EXPIRATION!: string;
 
   @IsOptional()
   @IsNumber()

@@ -7,3 +7,4 @@ export {
   ProfileId,
   VisitorProfile,
 } from './domain';
+export { ProfilesModule } from './profiles.module';

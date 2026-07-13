@@ -7,6 +7,16 @@ import { DomainException, ErrorCode } from '@shared/domain';
 
 import { AppException } from '../exceptions/app.exception';
 
+const HTTP_STATUS_TO_ERROR_CODE: Record<number, ErrorCode> = {
+  [HttpStatus.BAD_REQUEST]: ErrorCode.BAD_REQUEST,
+  [HttpStatus.UNAUTHORIZED]: ErrorCode.UNAUTHORIZED,
+  [HttpStatus.FORBIDDEN]: ErrorCode.FORBIDDEN,
+  [HttpStatus.NOT_FOUND]: ErrorCode.NOT_FOUND,
+  [HttpStatus.CONFLICT]: ErrorCode.CONFLICT,
+  [HttpStatus.UNPROCESSABLE_ENTITY]: ErrorCode.VALIDATION_ERROR,
+  [HttpStatus.INTERNAL_SERVER_ERROR]: ErrorCode.INTERNAL_ERROR,
+};
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -39,10 +49,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof HttpException) {
-      response.status(exception.getStatus()).json({
+      const status = exception.getStatus();
+      const code = HTTP_STATUS_TO_ERROR_CODE[status] ?? ErrorCode.BAD_REQUEST;
+      response.status(status).json({
         success: false,
         error: {
-          code: ErrorCode.BAD_REQUEST,
+          code,
           message: exception.message,
         },
       });

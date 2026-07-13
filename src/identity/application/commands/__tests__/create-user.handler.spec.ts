@@ -77,7 +77,8 @@ describe('CreateUserHandler', () => {
     it('should return the same aggregate instance the repository returned', async () => {
       const user = await handler.execute(makeCommand());
 
-      const savedArg = (await mockRepository.save.mock.results[0]?.value) as User;
+      expect(mockRepository.save).toHaveBeenCalledTimes(1);
+      const savedArg = mockRepository.save.mock.calls[0]?.[0] as User;
       expect(user).toBe(savedArg);
     });
   });
@@ -106,13 +107,22 @@ describe('CreateUserHandler', () => {
       expect(mockRepository.save).not.toHaveBeenCalled();
     });
 
+    it('should throw when email already exists', async () => {
+      mockRepository.findByEmail = jest.fn().mockResolvedValue({} as User);
+
+      await expect(handler.execute(makeCommand())).rejects.toThrow('El email ya está registrado');
+      expect(mockRepository.findByEmail).toHaveBeenCalledTimes(1);
+      expect(mockHasher.hash).not.toHaveBeenCalled();
+      expect(mockRepository.save).not.toHaveBeenCalled();
+    });
+
     it('should propagate the domain exception unchanged', async () => {
       try {
         await handler.execute(makeCommand({ email: 'not-an-email' }));
         throw new Error('handler should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain('Invalid email format');
+        expect((error as Error).message).toContain('El formato del email no es válido');
       }
     });
   });

@@ -174,6 +174,7 @@ export default tseslint.config(
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/unbound-method': 'off',
       'unicorn/consistent-function-scoping': 'off',
     },
   },

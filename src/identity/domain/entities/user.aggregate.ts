@@ -43,16 +43,18 @@ export class User extends AggregateRoot<UserId> {
     firstName: string,
     lastName: string,
     passwordHasher: IPasswordHasher,
+    role?: UserRole,
   ): Promise<User> {
     const id = UserId.generate();
     const passwordHash = await passwordHasher.hash(plainPassword);
+    const assignedRole = role ?? UserRole.VISITOR;
     const now = new Date();
 
     const user = new User(id, {
       email,
       firstName,
       lastName,
-      role: UserRole.VISITOR,
+      role: assignedRole,
       passwordHash,
       createdAt: now,
       updatedAt: now,

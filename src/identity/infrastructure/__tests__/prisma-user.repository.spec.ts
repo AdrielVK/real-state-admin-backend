@@ -14,7 +14,7 @@ jest.mock('../../../generated/prisma/client', () => ({
 
 import { UserRole } from '@shared/domain/value-objects/user-role.enum';
 
-import { User } from '../../domain/entities/user.entity';
+import { User } from '../../domain/entities/user.aggregate';
 import { UserPasswordChangedEvent } from '../../domain/events/user-password-changed.event';
 import { UserRegisteredEvent } from '../../domain/events/user-registered.event';
 import { UserEmail } from '../../domain/value-objects/user-email.value-object';

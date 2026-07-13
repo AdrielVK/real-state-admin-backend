@@ -13,7 +13,7 @@ async function main(): Promise<void> {
     create: {
       id: '00000000-0000-4000-8000-000000000001',
       email: 'admin@example.com',
-      passwordHash: 'hashed-password-placeholder',
+      passwordHash: '$2b$10$6I.c6NDHJSjhxS0dEZGSRO7Ehy9bGavf1aKGq0A8EFOTCkTarGf6q', // Admin123!
       firstName: 'Admin',
       lastName: 'User',
       role: 'ADMIN',

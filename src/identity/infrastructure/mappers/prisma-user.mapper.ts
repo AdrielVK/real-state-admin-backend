@@ -1,7 +1,7 @@
 import type { UserRole } from '@shared/domain/value-objects/user-role.enum';
 
 import type { UserModel } from '../../../generated/prisma/models';
-import { User } from '../../domain/entities/user.entity';
+import { User } from '../../domain/entities/user.aggregate';
 import { UserEmail } from '../../domain/value-objects/user-email.value-object';
 import { UserId } from '../../domain/value-objects/user-id.value-object';
 

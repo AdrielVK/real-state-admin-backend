@@ -9,7 +9,7 @@ describe('UserId', () => {
   });
 
   it('should throw for invalid UUID format', () => {
-    expect(() => new UserId('not-a-uuid')).toThrow('Invalid UUID format');
+    expect(() => new UserId('not-a-uuid')).toThrow('El formato del UUID no es válido');
   });
 
   it('should be equal to another UserId with the same UUID', () => {

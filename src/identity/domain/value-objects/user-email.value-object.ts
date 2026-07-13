@@ -9,7 +9,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export class UserEmail extends ValueObject<UserEmailProps> {
   constructor(value: string) {
     if (!EMAIL_REGEX.test(value)) {
-      throw new DomainException('Invalid email format', ErrorCode.VALIDATION_ERROR);
+      throw new DomainException('El formato del email no es válido', ErrorCode.VALIDATION_ERROR);
     }
     super({ value });
   }

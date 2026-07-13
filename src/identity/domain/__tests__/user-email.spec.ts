@@ -7,11 +7,11 @@ describe('UserEmail', () => {
   });
 
   it('should throw for invalid email format', () => {
-    expect(() => new UserEmail('not-an-email')).toThrow('Invalid email format');
+    expect(() => new UserEmail('not-an-email')).toThrow('El formato del email no es válido');
   });
 
   it('should throw for empty string', () => {
-    expect(() => new UserEmail('')).toThrow('Invalid email format');
+    expect(() => new UserEmail('')).toThrow('El formato del email no es válido');
   });
 
   it('should be equal to another UserEmail with the same value', () => {

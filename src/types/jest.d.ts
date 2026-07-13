@@ -25,7 +25,37 @@ declare function afterEach(fn: () => void | Promise<void>, timeout?: number): vo
 declare function expect(actual: any): any;
 
 // eslint-disable-next-line no-var
-declare var jest: any;
+declare var jest: {
+  fn<T extends (...args: unknown[]) => unknown = (...args: unknown[]) => unknown>(
+    implementation?: T,
+  ): jest.Mock<ReturnType<T>, Parameters<T>>;
+  spyOn<T extends object, K extends keyof T>(
+    object: T,
+    method: K,
+  ): jest.SpyInstance<ReturnType<T[K] extends (...args: unknown[]) => unknown ? T[K] : never>>;
+};
+
+declare namespace jest {
+  interface Mock<T extends (...args: unknown[]) => unknown = (...args: unknown[]) => unknown> {
+    (...args: Parameters<T>): ReturnType<T>;
+    mock: { calls: unknown[][]; results: unknown[] };
+    mockImplementation(fn: T): jest.Mock<T>;
+    mockResolvedValue(value: unknown): jest.Mock<T>;
+    mockRejectedValue(error: unknown): jest.Mock<T>;
+    mockReturnValue(value: unknown): jest.Mock<T>;
+    mockReset(): void;
+    mockClear(): void;
+  }
+
+  type Mocked<T> = {
+    [K in keyof T]: T[K] extends (...args: any[]) => any ? jest.Mock<T[K]> : T[K];
+  } & T;
+
+  type MockedFunction<T extends (...args: unknown[]) => unknown> = jest.Mock<T>;
+
+  type SpyInstance<T extends (...args: unknown[]) => unknown = (...args: unknown[]) => unknown> =
+    jest.Mock<T>;
+}
 declare let xit: (name: string, fn: () => void | Promise<void>) => void;
 declare let fit: (name: string, fn: () => void | Promise<void>) => void;
 declare let xtest: (name: string, fn: () => void | Promise<void>) => void;

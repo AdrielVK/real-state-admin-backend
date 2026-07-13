@@ -1,7 +1,7 @@
 import type { Identifier } from './value-objects/identifier';
 
 export abstract class Entity<T extends Identifier<unknown>> {
-  private readonly _id: T;
+  protected readonly _id: T;
 
   protected constructor(id: T) {
     this._id = id;

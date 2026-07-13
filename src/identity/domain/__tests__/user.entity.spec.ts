@@ -1,6 +1,6 @@
 import { UserRole } from '@shared/domain/value-objects/user-role.enum';
 
-import { User } from '../entities/user.entity';
+import { User } from '../entities/user.aggregate';
 import { UserPasswordChangedEvent } from '../events/user-password-changed.event';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import type { IPasswordHasher } from '../ports/password-hasher.port';
@@ -74,6 +74,51 @@ describe('User AggregateRoot', () => {
       const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
 
       expect(user.role).toBe(UserRole.VISITOR);
+    });
+
+    it('should assign the explicit role when provided (AGENT)', async () => {
+      const hasher = makeMockHasher();
+      const user = await User.register(
+        VALID_EMAIL,
+        VALID_PASSWORD,
+        'John',
+        'Doe',
+        hasher,
+        UserRole.AGENT,
+      );
+
+      expect(user.role).toBe(UserRole.AGENT);
+    });
+
+    it('should assign the explicit role when provided (ADMINISTRATIVE)', async () => {
+      const hasher = makeMockHasher();
+      const user = await User.register(
+        VALID_EMAIL,
+        VALID_PASSWORD,
+        'John',
+        'Doe',
+        hasher,
+        UserRole.ADMINISTRATIVE,
+      );
+
+      expect(user.role).toBe(UserRole.ADMINISTRATIVE);
+    });
+
+    it('should emit a UserRegisteredEvent with the explicit role', async () => {
+      const hasher = makeMockHasher();
+
+      const user = await User.register(
+        VALID_EMAIL,
+        VALID_PASSWORD,
+        'John',
+        'Doe',
+        hasher,
+        UserRole.AGENT,
+      );
+
+      const event = user.domainEvents[0] as UserRegisteredEvent;
+      expect(event).toBeInstanceOf(UserRegisteredEvent);
+      expect(event.role).toBe(UserRole.AGENT);
     });
 
     it('should hash the password via the hasher', async () => {

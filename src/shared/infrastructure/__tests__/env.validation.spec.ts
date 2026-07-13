@@ -7,7 +7,8 @@ describe('EnvironmentVariables validation', () => {
     const env = {
       DATABASE_URL: 'postgresql://localhost:5432/test',
       JWT_SECRET: 'secret',
-      JWT_EXPIRATION: '1d',
+      JWT_ACCESS_EXPIRATION: '15m',
+      JWT_REFRESH_EXPIRATION: '14d',
       PORT: '3000',
       NODE_ENV: 'development',
     };
@@ -18,7 +19,8 @@ describe('EnvironmentVariables validation', () => {
   it('should fail when DATABASE_URL is missing', () => {
     const env = {
       JWT_SECRET: 'secret',
-      JWT_EXPIRATION: '1d',
+      JWT_ACCESS_EXPIRATION: '15m',
+      JWT_REFRESH_EXPIRATION: '14d',
       PORT: '3000',
       NODE_ENV: 'development',
     };
@@ -28,7 +30,30 @@ describe('EnvironmentVariables validation', () => {
   it('should fail when JWT_SECRET is missing', () => {
     const env = {
       DATABASE_URL: 'postgresql://localhost:5432/test',
-      JWT_EXPIRATION: '1d',
+      JWT_ACCESS_EXPIRATION: '15m',
+      JWT_REFRESH_EXPIRATION: '14d',
+      PORT: '3000',
+      NODE_ENV: 'development',
+    };
+    expect(() => validate(env)).toThrow();
+  });
+
+  it('should fail when JWT_ACCESS_EXPIRATION is missing', () => {
+    const env = {
+      DATABASE_URL: 'postgresql://localhost:5432/test',
+      JWT_SECRET: 'secret',
+      JWT_REFRESH_EXPIRATION: '14d',
+      PORT: '3000',
+      NODE_ENV: 'development',
+    };
+    expect(() => validate(env)).toThrow();
+  });
+
+  it('should fail when JWT_REFRESH_EXPIRATION is missing', () => {
+    const env = {
+      DATABASE_URL: 'postgresql://localhost:5432/test',
+      JWT_SECRET: 'secret',
+      JWT_ACCESS_EXPIRATION: '15m',
       PORT: '3000',
       NODE_ENV: 'development',
     };
@@ -39,7 +64,8 @@ describe('EnvironmentVariables validation', () => {
     const env = {
       DATABASE_URL: 'postgresql://localhost:5432/test',
       JWT_SECRET: 'secret',
-      JWT_EXPIRATION: '1d',
+      JWT_ACCESS_EXPIRATION: '15m',
+      JWT_REFRESH_EXPIRATION: '14d',
       PORT: 'not-a-number',
       NODE_ENV: 'development',
     };
@@ -50,7 +76,8 @@ describe('EnvironmentVariables validation', () => {
     const env = {
       DATABASE_URL: 'postgresql://localhost:5432/test',
       JWT_SECRET: 'secret',
-      JWT_EXPIRATION: '1d',
+      JWT_ACCESS_EXPIRATION: '15m',
+      JWT_REFRESH_EXPIRATION: '14d',
       NODE_ENV: 'development',
     };
     const result = validate(env);

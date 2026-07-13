@@ -21,9 +21,9 @@ describe('AppModule (e2e)', () => {
     await app.init();
   });
 
-  it('/users/health (GET)', () => {
+  it('/health (GET)', () => {
     return request(app.getHttpServer())
-      .get('/users/health')
+      .get('/health')
       .expect(200)
       .expect((res) => {
         expect(res.body).toEqual({

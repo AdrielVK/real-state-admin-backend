@@ -1,4 +1,4 @@
-import type { User } from '../entities/user.entity';
+import type { User } from '../entities/user.aggregate';
 import type { UserEmail } from '../value-objects/user-email.value-object';
 import type { UserId } from '../value-objects/user-id.value-object';
 

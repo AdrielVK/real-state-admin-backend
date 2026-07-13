@@ -16,29 +16,32 @@ export class PlainPassword extends ValueObject<PlainPasswordProps> {
 
   static create(password: string): PlainPassword {
     if (typeof password !== 'string') {
-      throw new DomainException('Password must be a string', ErrorCode.VALIDATION_ERROR);
+      throw new DomainException(
+        'La contraseña debe ser una cadena de texto',
+        ErrorCode.VALIDATION_ERROR,
+      );
     }
     if (password.length < MIN_LENGTH) {
       throw new DomainException(
-        'Password must be at least 8 characters',
+        'La contraseña debe tener al menos 8 caracteres',
         ErrorCode.VALIDATION_ERROR,
       );
     }
     if (!UPPERCASE_REGEX.test(password)) {
       throw new DomainException(
-        'Password must contain at least one uppercase letter',
+        'La contraseña debe contener al menos una mayúscula',
         ErrorCode.VALIDATION_ERROR,
       );
     }
     if (!LOWERCASE_REGEX.test(password)) {
       throw new DomainException(
-        'Password must contain at least one lowercase letter',
+        'La contraseña debe contener al menos una minúscula',
         ErrorCode.VALIDATION_ERROR,
       );
     }
     if (!SYMBOL_REGEX.test(password)) {
       throw new DomainException(
-        'Password must contain at least one symbol',
+        'La contraseña debe contener al menos un símbolo',
         ErrorCode.VALIDATION_ERROR,
       );
     }

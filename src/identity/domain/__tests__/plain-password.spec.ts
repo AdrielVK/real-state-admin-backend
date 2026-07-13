@@ -56,7 +56,7 @@ describe('PlainPassword', () => {
       | PropertyDescriptor
       | undefined;
     // We only reference `.set` to assert it is undefined; we never invoke it.
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(descriptor?.set).toBeUndefined();
   });
 
