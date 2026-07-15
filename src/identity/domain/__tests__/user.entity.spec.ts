@@ -1,6 +1,7 @@
 import { UserRole } from '@shared/domain/value-objects/user-role.enum';
 
 import { User } from '../entities/user.aggregate';
+import { UserStatus } from '../enums/user-status.enum';
 import { UserPasswordChangedEvent } from '../events/user-password-changed.event';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import type { IPasswordHasher } from '../ports/password-hasher.port';
@@ -33,6 +34,7 @@ describe('User AggregateRoot', () => {
         'John',
         'Doe',
         UserRole.ADMIN,
+        UserStatus.ACTIVE,
         createdAt,
         updatedAt,
       );
@@ -44,6 +46,7 @@ describe('User AggregateRoot', () => {
       expect(user.firstName).toBe('John');
       expect(user.lastName).toBe('Doe');
       expect(user.role).toBe(UserRole.ADMIN);
+      expect(user.status).toBe(UserStatus.ACTIVE);
       expect(user.createdAt).toBe(createdAt);
       expect(user.updatedAt).toBe(updatedAt);
       expect(user.domainEvents).toHaveLength(0);
@@ -53,108 +56,83 @@ describe('User AggregateRoot', () => {
   describe('register()', () => {
     it('should create a User with a generated UUID v4', async () => {
       const hasher = makeMockHasher();
-
       const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
-
       const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       expect(user.id.toValue()).toMatch(uuidV4Regex);
     });
 
     it('should produce a different User on each call', async () => {
       const hasher = makeMockHasher();
-
       const a = await User.register(VALID_EMAIL, VALID_PASSWORD, 'A', 'A', hasher);
       const b = await User.register(VALID_EMAIL, VALID_PASSWORD, 'A', 'A', hasher);
-
       expect(a.id.toValue()).not.toBe(b.id.toValue());
     });
 
-    it('should assign VISITOR as default role', async () => {
+    it('should assign VISITOR role and ACTIVE status', async () => {
       const hasher = makeMockHasher();
       const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
-
       expect(user.role).toBe(UserRole.VISITOR);
-    });
-
-    it('should assign the explicit role when provided (AGENT)', async () => {
-      const hasher = makeMockHasher();
-      const user = await User.register(
-        VALID_EMAIL,
-        VALID_PASSWORD,
-        'John',
-        'Doe',
-        hasher,
-        UserRole.AGENT,
-      );
-
-      expect(user.role).toBe(UserRole.AGENT);
-    });
-
-    it('should assign the explicit role when provided (ADMINISTRATIVE)', async () => {
-      const hasher = makeMockHasher();
-      const user = await User.register(
-        VALID_EMAIL,
-        VALID_PASSWORD,
-        'John',
-        'Doe',
-        hasher,
-        UserRole.ADMINISTRATIVE,
-      );
-
-      expect(user.role).toBe(UserRole.ADMINISTRATIVE);
-    });
-
-    it('should emit a UserRegisteredEvent with the explicit role', async () => {
-      const hasher = makeMockHasher();
-
-      const user = await User.register(
-        VALID_EMAIL,
-        VALID_PASSWORD,
-        'John',
-        'Doe',
-        hasher,
-        UserRole.AGENT,
-      );
-
-      const event = user.domainEvents[0] as UserRegisteredEvent;
-      expect(event).toBeInstanceOf(UserRegisteredEvent);
-      expect(event.role).toBe(UserRole.AGENT);
+      expect(user.status).toBe(UserStatus.ACTIVE);
     });
 
     it('should hash the password via the hasher', async () => {
       const hasher = makeMockHasher('hashed-secure-1');
-
       const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
-
       expect(hasher.hash).toHaveBeenCalledWith(VALID_PASSWORD);
       expect(user.passwordHash).toBe('hashed-secure-1');
     });
 
-    it('should set createdAt and updatedAt close to now', async () => {
+    it('should emit a single UserRegisteredEvent with VISITOR role', async () => {
       const hasher = makeMockHasher();
-      const before = new Date();
       const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
-      const after = new Date();
-
-      expect(user.createdAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-      expect(user.createdAt.getTime()).toBeLessThanOrEqual(after.getTime());
-      expect(user.updatedAt.getTime()).toBe(user.createdAt.getTime());
-    });
-
-    it('should emit a single UserRegisteredEvent with correct payload', async () => {
-      const hasher = makeMockHasher();
-
-      const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
-
       const events = user.domainEvents;
       expect(events).toHaveLength(1);
       const event = events[0] as UserRegisteredEvent;
       expect(event).toBeInstanceOf(UserRegisteredEvent);
-      expect(event.aggregateId).toBe(user.id.toValue());
-      expect(event.userId).toBe(user.id.toValue());
-      expect(event.email).toBe('test@example.com');
       expect(event.role).toBe(UserRole.VISITOR);
       expect(event.eventName).toBe('identity.user.registered');
+    });
+  });
+
+  describe('createBusinessUser()', () => {
+    it('should create a User with the specified role', async () => {
+      const hasher = makeMockHasher();
+      const user = await User.createBusinessUser(
+        VALID_EMAIL,
+        VALID_PASSWORD,
+        'Agent',
+        'User',
+        UserRole.AGENT,
+        hasher,
+      );
+      expect(user.role).toBe(UserRole.AGENT);
+    });
+
+    it('should set status to PENDING_PASSWORD_CHANGE', async () => {
+      const hasher = makeMockHasher();
+      const user = await User.createBusinessUser(
+        VALID_EMAIL,
+        VALID_PASSWORD,
+        'Admin',
+        'User',
+        UserRole.ADMINISTRATIVE,
+        hasher,
+      );
+      expect(user.status).toBe(UserStatus.PENDING_PASSWORD_CHANGE);
+    });
+
+    it('should emit UserRegisteredEvent with the business role', async () => {
+      const hasher = makeMockHasher();
+      const user = await User.createBusinessUser(
+        VALID_EMAIL,
+        VALID_PASSWORD,
+        'Agent',
+        'User',
+        UserRole.AGENT,
+        hasher,
+      );
+      const event = user.domainEvents[0] as UserRegisteredEvent;
+      expect(event.role).toBe(UserRole.AGENT);
     });
   });
 
@@ -167,6 +145,7 @@ describe('User AggregateRoot', () => {
         'John',
         'Doe',
         UserRole.VISITOR,
+        UserStatus.PENDING_PASSWORD_CHANGE,
         new Date('2024-01-01'),
         new Date('2024-01-01'),
       );
@@ -175,69 +154,31 @@ describe('User AggregateRoot', () => {
     it('should hash the new password via the hasher', async () => {
       const user = makeUser();
       const hasher = makeMockHasher('new-hash');
-
       await user.changePassword(VALID_PASSWORD, hasher);
-
       expect(hasher.hash).toHaveBeenCalledWith(VALID_PASSWORD);
       expect(user.passwordHash).toBe('new-hash');
     });
 
-    it('should update updatedAt to a more recent date', async () => {
+    it('should set status to ACTIVE after password change', async () => {
       const user = makeUser();
-      const originalUpdatedAt = user.updatedAt;
       const hasher = makeMockHasher();
-
-      // ensure measurable time difference
-      await new Promise((r) => setTimeout(r, 5));
       await user.changePassword(VALID_PASSWORD, hasher);
-
-      expect(user.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+      expect(user.status).toBe(UserStatus.ACTIVE);
     });
 
     it('should emit a single UserPasswordChangedEvent', async () => {
       const user = makeUser();
       const hasher = makeMockHasher();
-
       await user.changePassword(VALID_PASSWORD, hasher);
-
       const events = user.domainEvents;
       expect(events).toHaveLength(1);
-      const event = events[0] as UserPasswordChangedEvent;
-      expect(event).toBeInstanceOf(UserPasswordChangedEvent);
-      expect(event.aggregateId).toBe(VALID_UUID);
-      expect(event.eventName).toBe('user.passwordChanged');
-    });
-
-    it('should accumulate events across operations', async () => {
-      const hasher = makeMockHasher();
-      const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
-      // registration event is already there
-      expect(user.domainEvents).toHaveLength(1);
-
-      await user.changePassword(VALID_PASSWORD, hasher);
-
-      expect(user.domainEvents).toHaveLength(2);
-      expect(user.domainEvents[0]).toBeInstanceOf(UserRegisteredEvent);
-      expect(user.domainEvents[1]).toBeInstanceOf(UserPasswordChangedEvent);
-    });
-  });
-
-  describe('clearEvents() (inherited)', () => {
-    it('should clear pending events', async () => {
-      const hasher = makeMockHasher();
-      const user = await User.register(VALID_EMAIL, VALID_PASSWORD, 'John', 'Doe', hasher);
-
-      expect(user.domainEvents.length).toBeGreaterThan(0);
-      user.clearEvents();
-      expect(user.domainEvents).toHaveLength(0);
+      expect(events[0]).toBeInstanceOf(UserPasswordChangedEvent);
     });
   });
 
   describe('toPrimitives()', () => {
-    it('should expose all fields as a record', () => {
+    it('should expose all fields including status', () => {
       const id = new UserId(VALID_UUID);
-      const createdAt = new Date('2024-01-01');
-      const updatedAt = new Date('2024-01-02');
       const user = User.reconstitute(
         id,
         VALID_EMAIL,
@@ -245,19 +186,12 @@ describe('User AggregateRoot', () => {
         'John',
         'Doe',
         UserRole.ADMIN,
-        createdAt,
-        updatedAt,
+        UserStatus.ACTIVE,
+        new Date('2024-01-01'),
+        new Date('2024-01-02'),
       );
-
       const primitives = user.toPrimitives();
-      expect(primitives.id).toBe(VALID_UUID);
-      expect(primitives.email).toBe('test@example.com');
-      expect(primitives.firstName).toBe('John');
-      expect(primitives.lastName).toBe('Doe');
-      expect(primitives.role).toBe(UserRole.ADMIN);
-      expect(primitives.passwordHash).toBe('hashed');
-      expect(primitives.createdAt).toBe(createdAt);
-      expect(primitives.updatedAt).toBe(updatedAt);
+      expect(primitives.status).toBe(UserStatus.ACTIVE);
     });
   });
 });

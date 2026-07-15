@@ -22,6 +22,7 @@ model User {
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
   role         UserRole @default(VISITOR)
+  status       String   @default("ACTIVE")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -51,4 +52,95 @@ model Profile {
   updatedAt DateTime @updatedAt
 
   @@map("profiles")
+}
+
+enum PropertyType {
+  departamento
+  casa
+  ph
+  local_comercial
+  oficina
+  galpon
+  terreno
+  cochera
+  edificio
+  quinta
+
+  @@map("property_type")
+}
+
+enum PropertyStatus {
+  disponible
+  bajo_contrato
+  archivado
+
+  @@map("property_status")
+}
+
+enum ConservationState {
+  excelente
+  bueno
+  regular
+  necesita_renovacion
+
+  @@map("conservation_state")
+}
+
+model Property {
+  id           String         @id
+  internalId   String?        @unique @map("internal_id")
+  status       PropertyStatus @default(disponible)
+  placeId      String         @map("place_id")
+  formatted    String         @map("address_formatted")
+  street       String?        @map("address_street")
+  streetNumber String?        @map("address_street_number")
+  floor        String?        @map("address_floor")
+  apartment    String?        @map("address_apartment")
+  neighborhood String?        @map("address_neighborhood")
+  city         String?        @map("address_city")
+  province     String?        @map("address_province")
+  country      String?        @map("address_country")
+  postalCode   String?        @map("address_postal_code")
+  latitude     Decimal        @map("address_latitude")
+  longitude    Decimal        @map("address_longitude")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  features PropertyFeatures?
+
+  @@index([status])
+  @@index([internalId])
+  @@map("properties")
+}
+
+model PropertyFeatures {
+  id                String            @id @default(uuid())
+  propertyId        String            @unique @map("property_id")
+  propertyType      PropertyType      @map("property_type")
+  conservationState ConservationState? @map("conservation_state")
+
+  totalAreaM2      Float? @map("total_area_m2")
+  coveredAreaM2    Float? @map("covered_area_m2")
+  uncoveredAreaM2  Float? @map("uncovered_area_m2")
+  frontMeters      Float? @map("front_meters")
+  backMeters       Float? @map("back_meters")
+  rooms            Int?
+  bedrooms         Int?
+  bathrooms        Int?
+  toilettes        Int?
+  garages          Int?
+  floorNumber      Int?   @map("floor_number")
+  unitIdentifier   String? @map("unit_identifier")
+  constructionYear Int?   @map("construction_year")
+  orientation      String?
+
+  serviceTags   Json @default("[]") @map("service_tags")
+  amenityTags   Json @default("[]") @map("amenity_tags")
+  conditionTags Json @default("[]") @map("condition_tags")
+  extraFeatures Json @default("{}") @map("extra_features")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyType])
+  @@map("property_features")
 }

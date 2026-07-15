@@ -1,0 +1,4 @@
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  PENDING_PASSWORD_CHANGE = 'PENDING_PASSWORD_CHANGE',
+}

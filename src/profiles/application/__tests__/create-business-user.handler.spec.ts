@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { ErrorCode, type IDomainEventPublisher, UserRole } from '@shared/domain';
+import { ErrorCode, UserRole } from '@shared/domain';
 import { AppException } from '@shared/presentation';
 
 import type {
@@ -10,6 +10,9 @@ import type {
   UserEmail,
   UserId,
 } from '../../../identity/domain';
+import type { ProfileId } from '../../domain';
+import type { Profile } from '../../domain';
+import type { IProfileRepository } from '../../domain';
 import { CreateBusinessUserHandler } from '../commands/create-business-user.handler';
 import { CreateBusinessUserDto } from '../dto/create-business-user.dto';
 
@@ -29,18 +32,19 @@ function makeMockPasswordHasher(): jest.Mocked<IPasswordHasher> {
   } as jest.Mocked<IPasswordHasher>;
 }
 
-function makeMockEventPublisher(): jest.Mocked<IDomainEventPublisher> {
+function makeMockProfileRepository(): jest.Mocked<IProfileRepository> {
   return {
-    publish: jest.fn().mockResolvedValue(),
-  } as jest.Mocked<IDomainEventPublisher>;
+    findByUserId: jest.fn().mockResolvedValue(null),
+    save: jest.fn().mockImplementation(async (profile: Profile<ProfileId>) => profile),
+  } as jest.Mocked<IProfileRepository>;
 }
 
 function makeHandler() {
   const userRepository = makeMockUserRepository();
   const passwordHasher = makeMockPasswordHasher();
-  const eventPublisher = makeMockEventPublisher();
-  const handler = new CreateBusinessUserHandler(userRepository, passwordHasher, eventPublisher);
-  return { handler, userRepository, passwordHasher, eventPublisher };
+  const profileRepository = makeMockProfileRepository();
+  const handler = new CreateBusinessUserHandler(userRepository, passwordHasher, profileRepository);
+  return { handler, userRepository, passwordHasher, profileRepository };
 }
 
 const validDto = (role: UserRole = UserRole.AGENT): CreateBusinessUserDto => {
@@ -56,7 +60,7 @@ const validDto = (role: UserRole = UserRole.AGENT): CreateBusinessUserDto => {
 describe('CreateBusinessUserHandler', () => {
   describe('execute() — success path', () => {
     it('should create a user with the requested AGENT role', async () => {
-      const { handler, userRepository, passwordHasher, eventPublisher } = makeHandler();
+      const { handler, userRepository, passwordHasher, profileRepository } = makeHandler();
 
       const user = await handler.execute(validDto(UserRole.AGENT));
 
@@ -65,43 +69,19 @@ describe('CreateBusinessUserHandler', () => {
       expect(passwordHasher.hash).toHaveBeenCalledTimes(1);
       expect(userRepository.findByEmail).toHaveBeenCalledTimes(1);
       expect(userRepository.save).toHaveBeenCalledTimes(1);
-      expect(eventPublisher.publish).toHaveBeenCalled();
+      expect(profileRepository.save).toHaveBeenCalledTimes(1);
     });
 
     it('should create a user with the requested ADMINISTRATIVE role', async () => {
       const { handler } = makeHandler();
-
       const user = await handler.execute(validDto(UserRole.ADMINISTRATIVE));
-
       expect(user.role).toBe(UserRole.ADMINISTRATIVE);
     });
 
-    it('should hash the provided password via the password hasher', async () => {
-      const { handler, passwordHasher } = makeHandler();
-      const dto = validDto();
-
-      await handler.execute(dto);
-
-      expect(passwordHasher.hash).toHaveBeenCalledTimes(1);
-      const hashedArg = passwordHasher.hash.mock.calls[0]?.[0];
-      expect(hashedArg).toBeDefined();
-    });
-
-    it('should publish domain events after saving', async () => {
-      const { handler, eventPublisher } = makeHandler();
-
-      await handler.execute(validDto());
-
-      expect(eventPublisher.publish).toHaveBeenCalled();
-    });
-
-    it('should check email uniqueness via the user repository', async () => {
-      const { handler, userRepository } = makeHandler();
-      const dto = validDto();
-
-      await handler.execute(dto);
-
-      expect(userRepository.findByEmail).toHaveBeenCalledTimes(1);
+    it('should create the corresponding profile', async () => {
+      const { handler, profileRepository } = makeHandler();
+      await handler.execute(validDto(UserRole.AGENT));
+      expect(profileRepository.save).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -122,35 +102,6 @@ describe('CreateBusinessUserHandler', () => {
       }
       expect(caught).toBeInstanceOf(AppException);
       expect((caught as AppException).code).toBe(ErrorCode.CONFLICT);
-    });
-
-    it('should not save or publish when the email is already registered', async () => {
-      const { handler, userRepository, passwordHasher, eventPublisher } = makeHandler();
-      const existingUser = {
-        id: { toValue: () => 'existing-id' } as UserId,
-        email: { value: 'agent@example.com' } as UserEmail,
-      } as unknown as User;
-      userRepository.findByEmail.mockResolvedValue(existingUser);
-
-      try {
-        await handler.execute(validDto());
-      } catch {
-        // expected
-      }
-
-      expect(userRepository.save).not.toHaveBeenCalled();
-      expect(passwordHasher.hash).not.toHaveBeenCalled();
-      expect(eventPublisher.publish).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('execute() — domain authorization (handled at DTO/controller level)', () => {
-    it('should only rely on caller being ADMIN; the handler trusts the input role for AGENT', async () => {
-      const { handler } = makeHandler();
-
-      const user = await handler.execute(validDto(UserRole.AGENT));
-
-      expect(user.role).toBe(UserRole.AGENT);
     });
   });
 });

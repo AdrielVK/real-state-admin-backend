@@ -12,6 +12,8 @@ const ERROR_CODE_STATUS_MAP: Record<ErrorCode, HttpStatus> = {
   [ErrorCode.CONFLICT]: HttpStatus.CONFLICT,
   [ErrorCode.INTERNAL_ERROR]: HttpStatus.INTERNAL_SERVER_ERROR,
   [ErrorCode.BAD_REQUEST]: HttpStatus.BAD_REQUEST,
+  [ErrorCode.INVALID_ADDRESS]: HttpStatus.BAD_REQUEST,
+  [ErrorCode.DUPLICATE_INTERNAL_ID]: HttpStatus.CONFLICT,
 };
 
 export class AppException extends HttpException {

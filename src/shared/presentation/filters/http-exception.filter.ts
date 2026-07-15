@@ -38,10 +38,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof DomainException) {
+      // Propagate the DomainException code when present; otherwise default to
+      // BAD_REQUEST. The HTTP status is BAD_REQUEST for any domain exception
+      // because they represent invalid inputs/business rule violations.
+      const code =
+        (exception.code as ErrorCode | undefined) &&
+        Object.values(ErrorCode).includes(exception.code as ErrorCode)
+          ? (exception.code as ErrorCode)
+          : ErrorCode.BAD_REQUEST;
       response.status(HttpStatus.BAD_REQUEST).json({
         success: false,
         error: {
-          code: ErrorCode.BAD_REQUEST,
+          code,
           message: exception.message,
         },
       });

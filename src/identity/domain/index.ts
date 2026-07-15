@@ -1,5 +1,6 @@
 export { RefreshToken } from './entities/refresh-token.entity';
 export { User } from './entities/user.aggregate';
+export { UserStatus } from './enums/user-status.enum';
 export { UserPasswordChangedEvent } from './events/user-password-changed.event';
 export { UserRegisteredEvent } from './events/user-registered.event';
 export type { IPasswordHasher } from './ports/password-hasher.port';

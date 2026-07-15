@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { ErrorCode, type IDomainEventPublisher, UserRole } from '@shared/domain';
+import { ErrorCode } from '@shared/domain';
 import { AppException } from '@shared/presentation';
 
 import {
@@ -12,51 +12,47 @@ import {
   User,
   UserEmail,
 } from '../../../identity/domain';
-import { AdminProfile } from '../../domain';
-import { CreateBusinessUserDto } from '../dto/create-business-user.dto';
+import { type IProfileRepository, IProfileRepositoryToken } from '../../domain';
+import type { CreateBusinessUserDto } from '../dto/create-business-user.dto';
+import { createProfileForRole } from '../handlers/role-to-profile.factory';
 
 @Injectable()
 export class CreateBusinessUserHandler {
   constructor(
     @Inject(IUserRepositoryToken) private readonly userRepository: IUserRepository,
     @Inject(IPasswordHasherToken) private readonly passwordHasher: IPasswordHasher,
-    @Inject('IDomainEventPublisher') private readonly eventPublisher: IDomainEventPublisher,
+    @Inject(IProfileRepositoryToken) private readonly profileRepository: IProfileRepository,
   ) {}
 
   async execute(dto: CreateBusinessUserDto): Promise<User> {
-    const authorization = AdminProfile.canCreateBusinessUser(UserRole.ADMIN, dto.role);
-    if (authorization.isFail) {
-      const error = authorization.getError();
-      throw new AppException(
-        (error.code as ErrorCode | undefined) ?? ErrorCode.FORBIDDEN,
-        error.message,
-        undefined,
-        undefined,
-      );
-    }
-
+    // 1. Validate email format
     const email = new UserEmail(dto.email);
 
+    // 2. Check email uniqueness
     const existing = await this.userRepository.findByEmail(email);
     if (existing) {
       throw new AppException(ErrorCode.CONFLICT, 'El email ya está registrado');
     }
 
+    // 3. Validate password complexity (PlainPassword enforces invariants)
     const plainPassword = PlainPassword.create(dto.password);
 
-    const user = await User.register(
+    // 4. Create user with domain factory — sets PENDING_PASSWORD_CHANGE
+    const user = await User.createBusinessUser(
       email,
       plainPassword,
       dto.firstName,
       dto.lastName,
-      this.passwordHasher,
       dto.role,
+      this.passwordHasher,
     );
 
+    // 5. Persist user
     const savedUser = await this.userRepository.save(user);
 
-    const events = savedUser.pullDomainEvents();
-    await Promise.all(events.map(async (event) => this.eventPublisher.publish(event)));
+    // 6. Directly create profile (no event consistency issues)
+    const profile = createProfileForRole(dto.role, savedUser.id.toValue());
+    await this.profileRepository.save(profile);
 
     return savedUser;
   }

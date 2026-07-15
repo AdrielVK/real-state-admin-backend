@@ -4,6 +4,7 @@ import { UserRole } from '@shared/domain';
 import { Roles } from '@shared/presentation';
 
 import { CreateBusinessUserHandler } from '../../application/commands/create-business-user.handler';
+import type { BusinessUserResponse } from '../../application/dto/business-user-response.dto';
 import { CreateBusinessUserDto } from '../../application/dto/create-business-user.dto';
 
 @Controller('profiles')
@@ -13,8 +14,14 @@ export class ProfilesController {
   @Roles(UserRole.ADMIN)
   @Post('business-users')
   @HttpCode(201)
-  async create(@Body() dto: CreateBusinessUserDto): Promise<Record<string, unknown>> {
+  async create(@Body() dto: CreateBusinessUserDto): Promise<BusinessUserResponse> {
     const user = await this.handler.execute(dto);
-    return user.toPrimitives();
+    return {
+      id: user.id.toValue(),
+      email: user.email.value,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    };
   }
 }
