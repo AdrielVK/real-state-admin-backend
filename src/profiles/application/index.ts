@@ -1,4 +1,5 @@
-export { CreateBusinessUserHandler } from './commands/create-business-user.handler';
+export { CreateBusinessUserCommand } from './commands/create-business-user.command';
+export { CreateBusinessUserUseCase } from './commands/create-business-user.use-case';
 export { CreateBusinessUserDto } from './dto/create-business-user.dto';
-export { CreateProfileOnUserRegisteredHandler } from './handlers/create-profile-on-user-registered.handler';
-export { createProfileForRole } from './handlers/role-to-profile.factory';
+export { createProfileForRole } from './factories/role-to-profile.factory';
+export { CreateProfileOnUserRegisteredUseCase } from './handlers/create-profile-on-user-registered.use-case';

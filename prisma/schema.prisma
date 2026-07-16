@@ -15,6 +15,42 @@ enum UserRole {
   VISITOR
 }
 
+enum PropertyType {
+  casa
+  departamento
+  ph
+  local
+  oficina
+  terreno
+  cochera
+  galpon
+}
+
+enum PropertyStatus {
+  disponible
+  reservada
+  vendida
+  alquilada
+  en_proceso
+  no_disponible
+}
+
+enum ConservationState {
+  a_estrenar
+  excelente
+  muy_bueno
+  bueno
+  regular
+  a_refaccionar
+}
+
+enum TagCategory {
+  servicio
+  amenidad
+  condicion
+  material
+}
+
 model User {
   id           String   @id
   email        String   @unique
@@ -51,4 +87,98 @@ model Profile {
   updatedAt DateTime @updatedAt
 
   @@map("profiles")
+}
+
+model Property {
+  id           String         @id @default(uuid())
+  internalCode String?        @unique @map("internal_code")
+  status       PropertyStatus @default(disponible)
+  propertyType PropertyType
+
+  ownerProfileId String? @map("owner_profile_id")
+  agentProfileId String? @map("agent_profile_id")
+
+  addressPlaceId       String?  @map("address_place_id")
+  addressFormatted     String   @map("address_formatted")
+  addressStreet        String?  @map("address_street")
+  addressStreetNumber  String?  @map("address_street_number")
+  addressNeighborhood  String?  @map("address_neighborhood")
+  addressCity          String   @map("address_city")
+  addressState         String?  @map("address_state")
+  addressCountry       String   @map("address_country")
+  addressPostalCode    String?  @map("address_postal_code")
+  addressLatitude      Decimal? @map("address_latitude") @db.Decimal(10, 8)
+  addressLongitude     Decimal? @map("address_longitude") @db.Decimal(11, 8)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  features PropertyFeatures?
+  tags     PropertyFeatureTag[]
+
+  @@index([status])
+  @@index([propertyType])
+  @@index([agentProfileId])
+  @@index([deletedAt])
+  @@index([addressCity])
+  @@index([addressNeighborhood])
+  @@index([addressLatitude, addressLongitude])
+  @@map("properties")
+}
+
+model PropertyFeatures {
+  propertyId String @id @map("property_id")
+
+  totalAreaM2      Decimal           @map("total_area_m2") @db.Decimal(10, 2)
+  coveredAreaM2    Decimal           @map("covered_area_m2") @db.Decimal(10, 2)
+  rooms            Int?              @map("rooms")
+  bedrooms         Int?              @map("bedrooms")
+  bathrooms        Int?              @map("bathrooms")
+  garages          Int?              @map("garages")
+  floor            Int?              @map("floor")
+  conservationState ConservationState? @map("conservation_state")
+  ageYears         Int?              @map("age_years")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([totalAreaM2])
+  @@index([coveredAreaM2])
+  @@index([rooms])
+  @@index([bedrooms])
+  @@index([bathrooms])
+  @@index([garages])
+  @@map("property_features")
+}
+
+model PropertyTag {
+  id       Int         @id @default(autoincrement())
+  name     String
+  slug     String
+  category TagCategory
+  isActive Boolean     @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  properties PropertyFeatureTag[]
+
+  @@unique([slug, category])
+  @@index([category])
+  @@index([isActive])
+  @@map("property_tags")
+}
+
+model PropertyFeatureTag {
+  propertyId String @map("property_id")
+  tagId      Int    @map("tag_id")
+
+  property Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tag      PropertyTag @relation(fields: [tagId], references: [id])
+
+  @@id([propertyId, tagId])
+  @@index([tagId])
+  @@map("property_feature_tags")
 }

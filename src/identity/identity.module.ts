@@ -4,11 +4,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
+import { DomainEventModule } from '@shared/infrastructure';
 import { JwtAuthGuard, RolesGuard } from '@shared/presentation';
 
-import { LoginHandler } from './application/commands/login.handler';
-import { LogoutHandler } from './application/commands/logout.handler';
-import { RefreshHandler } from './application/commands/refresh.handler';
+import { CreateUserUseCase } from './application/commands/create-user.use-case';
+import { LoginUseCase } from './application/commands/login.use-case';
+import { LogoutUseCase } from './application/commands/logout.use-case';
+import { RefreshUseCase } from './application/commands/refresh.use-case';
 import {
   IPasswordHasherToken,
   IRefreshTokenRepositoryToken,
@@ -24,6 +26,7 @@ import { AuthController } from './presentation/controllers/auth.controller';
 
 @Module({
   imports: [
+    DomainEventModule,
     PassportModule.register({ defaultStrategy: 'jwt', session: false }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -58,9 +61,10 @@ import { AuthController } from './presentation/controllers/auth.controller';
     BcryptPasswordHasher,
     JwtTokenService,
     JwtStrategy,
-    LoginHandler,
-    RefreshHandler,
-    LogoutHandler,
+    CreateUserUseCase,
+    LoginUseCase,
+    RefreshUseCase,
+    LogoutUseCase,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

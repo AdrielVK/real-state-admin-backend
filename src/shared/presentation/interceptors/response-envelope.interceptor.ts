@@ -24,6 +24,10 @@ function isPaginatedResponse(data: unknown): data is PaginatedResponse {
   );
 }
 
+function hasMessageField(data: unknown): data is { message: string; data: unknown } {
+  return typeof data === 'object' && data !== null && 'message' in data && 'data' in data;
+}
+
 @Injectable()
 export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unknown> {
   intercept(_context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -34,6 +38,13 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
             success: true as const,
             data: data.data,
             meta: data.meta,
+          };
+        }
+        if (hasMessageField(data)) {
+          return {
+            success: true as const,
+            message: data.message,
+            data: data.data,
           };
         }
         return {

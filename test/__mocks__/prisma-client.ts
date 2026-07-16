@@ -17,6 +17,18 @@ export class PrismaClient {
     delete: jest.fn(),
     count: jest.fn().mockResolvedValue(0),
   };
+
+  property = {
+    findFirst: jest.fn().mockResolvedValue(null),
+    findUnique: jest.fn().mockResolvedValue(null),
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    update: jest.fn(),
+    upsert: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    count: jest.fn().mockResolvedValue(0),
+  };
 }
 
 export default { PrismaClient };

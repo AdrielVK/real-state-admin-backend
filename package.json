@@ -23,6 +23,7 @@
     "ci:check": "pnpm format:check && pnpm lint:check && pnpm test && pnpm test:e2e && pnpm build",
     "prepare": "husky",
     "prisma:generate": "prisma generate",
+    "postprisma:generate": "echo '{\"type\": \"module\"}' > src/generated/prisma/package.json && echo '{\"type\": \"module\"}' > src/generated/prisma/internal/package.json",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",

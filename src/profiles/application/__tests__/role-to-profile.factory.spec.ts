@@ -6,7 +6,7 @@ import { AgentProfile } from '../../domain/entities/agent-profile.aggregate';
 import { ClientProfile } from '../../domain/entities/client-profile.aggregate';
 import { Profile } from '../../domain/entities/profile.aggregate';
 import { VisitorProfile } from '../../domain/entities/visitor-profile.aggregate';
-import { createProfileForRole } from '../handlers/role-to-profile.factory';
+import { createProfileForRole } from '../factories/role-to-profile.factory';
 
 const USER_ID = 'user-uuid-1234';
 
