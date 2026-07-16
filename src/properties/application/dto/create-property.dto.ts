@@ -6,183 +6,152 @@ import {
   IsLongitude,
   IsNotEmpty,
   IsNumber,
-  IsObject,
   IsOptional,
   IsString,
-  Length,
-  Matches,
-  Max,
+  IsUUID,
   Min,
   ValidateNested,
 } from 'class-validator';
 
-import { ConservationState } from '../../domain/enums/conservation-state.enum';
-import { PropertyType } from '../../domain/enums/property-type.enum';
+import { CharacteristicCategory } from '@properties/domain/enums/characteristic-category.enum';
+import { ConservationState } from '@properties/domain/enums/conservation-state.enum';
+import { PropertyStatus } from '@properties/domain/enums/property-status.enum';
+import { PropertyType } from '@properties/domain/enums/property-type.enum';
 
-export class PropertyAddressDto {
+export class CreatePropertyAddressDto {
+  @IsOptional()
+  @IsString()
+  addressPlaceId?: string | null;
+
   @IsString()
   @IsNotEmpty()
-  placeId!: string;
+  addressFormatted!: string;
+
+  @IsOptional()
+  @IsString()
+  addressStreet?: string | null;
+
+  @IsOptional()
+  @IsString()
+  addressStreetNumber?: string | null;
+
+  @IsOptional()
+  @IsString()
+  addressNeighborhood?: string | null;
 
   @IsString()
   @IsNotEmpty()
-  formatted!: string;
+  addressCity!: string;
 
   @IsOptional()
   @IsString()
-  street?: string;
+  addressState?: string | null;
+
+  @IsString()
+  @IsNotEmpty()
+  addressCountry!: string;
 
   @IsOptional()
   @IsString()
-  streetNumber?: string;
+  addressPostalCode?: string | null;
 
   @IsOptional()
-  @IsString()
-  floor?: string;
-
-  @IsOptional()
-  @IsString()
-  apartment?: string;
-
-  @IsOptional()
-  @IsString()
-  neighborhood?: string;
-
-  @IsOptional()
-  @IsString()
-  city?: string;
-
-  @IsOptional()
-  @IsString()
-  province?: string;
-
-  @IsOptional()
-  @IsString()
-  country?: string;
-
-  @IsOptional()
-  @IsString()
-  postalCode?: string;
-
   @IsLatitude()
-  @Type(() => Number)
-  latitude!: number;
+  addressLatitude?: number | null;
 
+  @IsOptional()
   @IsLongitude()
-  @Type(() => Number)
-  longitude!: number;
+  addressLongitude?: number | null;
 }
 
-export class PropertyFeaturesDto {
+export class CreatePropertyFeaturesDto {
+  @IsNumber()
+  @Min(0.01)
+  totalAreaM2!: number;
+
+  @IsNumber()
+  @Min(0.01)
+  coveredAreaM2!: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  rooms?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bedrooms?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bathrooms?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  garages?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  floor?: number | null;
+
+  @IsEnum(ConservationState)
+  conservationState!: ConservationState;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  ageYears?: number | null;
+}
+
+export class CreatePropertyCharacteristicDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  slug!: string;
+
+  @IsEnum(CharacteristicCategory)
+  category!: CharacteristicCategory;
+}
+
+export class CreatePropertyDto {
+  @IsOptional()
+  @IsString()
+  internalCode?: string | null;
+
   @IsEnum(PropertyType)
   propertyType!: PropertyType;
 
   @IsOptional()
-  @IsEnum(ConservationState)
-  conservationState?: ConservationState;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  totalAreaM2?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  coveredAreaM2?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  uncoveredAreaM2?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  frontMeters?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  backMeters?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  rooms?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  bedrooms?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  bathrooms?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  toilettes?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  garages?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(-100)
-  @Max(200)
-  floorNumber?: number;
-
-  @IsOptional()
-  @IsString()
-  unitIdentifier?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1800)
-  @Max(2200)
-  constructionYear?: number;
-
-  @IsOptional()
-  @IsString()
-  orientation?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  serviceTags?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  amenityTags?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  conditionTags?: string[];
-
-  @IsOptional()
-  @IsObject()
-  extraFeatures?: Record<string, unknown>;
-}
-
-export class CreatePropertyDto {
-  @ValidateNested()
-  @Type(() => PropertyAddressDto)
-  address!: PropertyAddressDto;
+  @IsEnum(PropertyStatus)
+  status?: PropertyStatus;
 
   @ValidateNested()
-  @Type(() => PropertyFeaturesDto)
-  features!: PropertyFeaturesDto;
+  @Type(() => CreatePropertyAddressDto)
+  address!: CreatePropertyAddressDto;
 
   @IsOptional()
-  @IsString()
-  @Length(7, 7)
-  @Matches(/^[A-Za-z0-9]{7}$/)
-  internalId?: string;
+  @ValidateNested()
+  @Type(() => CreatePropertyFeaturesDto)
+  features?: CreatePropertyFeaturesDto;
+
+  @IsOptional()
+  @IsUUID()
+  ownerProfileId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  agentProfileId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatePropertyCharacteristicDto)
+  characteristics?: CreatePropertyCharacteristicDto[];
 }

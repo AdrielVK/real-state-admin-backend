@@ -1,156 +1,128 @@
 import { DomainException, ErrorCode, ValueObject, type ValueObjectProps } from '@shared/domain';
 
 export interface PropertyAddressProps extends ValueObjectProps {
-  placeId: string;
-  formatted: string;
-  street: string | null;
-  streetNumber: string | null;
-  floor: string | null;
-  apartment: string | null;
-  neighborhood: string | null;
-  city: string | null;
-  province: string | null;
-  country: string | null;
-  postalCode: string | null;
-  latitude: number;
-  longitude: number;
+  addressPlaceId: string | null;
+  addressFormatted: string;
+  addressStreet: string | null;
+  addressStreetNumber: string | null;
+  addressNeighborhood: string | null;
+  addressCity: string;
+  addressState: string | null;
+  addressCountry: string;
+  addressPostalCode: string | null;
+  addressLatitude: number | null;
+  addressLongitude: number | null;
 }
 
-const MIN_LATITUDE = -90;
-const MAX_LATITUDE = 90;
-const MIN_LONGITUDE = -180;
-const MAX_LONGITUDE = 180;
-
 export class PropertyAddress extends ValueObject<PropertyAddressProps> {
-  constructor(props: {
-    placeId: string;
-    formatted: string;
-    latitude: number;
-    longitude: number;
-    street?: string | null;
-    streetNumber?: string | null;
-    floor?: string | null;
-    apartment?: string | null;
-    neighborhood?: string | null;
-    city?: string | null;
-    province?: string | null;
-    country?: string | null;
-    postalCode?: string | null;
-  }) {
-    PropertyAddress.assertValidPlaceId(props.placeId);
-    PropertyAddress.assertValidFormatted(props.formatted);
-    PropertyAddress.assertValidLatitude(props.latitude);
-    PropertyAddress.assertValidLongitude(props.longitude);
-    super({
-      placeId: props.placeId,
-      formatted: props.formatted,
-      street: PropertyAddress.toNullableString(props.street),
-      streetNumber: PropertyAddress.toNullableString(props.streetNumber),
-      floor: PropertyAddress.toNullableString(props.floor),
-      apartment: PropertyAddress.toNullableString(props.apartment),
-      neighborhood: PropertyAddress.toNullableString(props.neighborhood),
-      city: PropertyAddress.toNullableString(props.city),
-      province: PropertyAddress.toNullableString(props.province),
-      country: PropertyAddress.toNullableString(props.country),
-      postalCode: PropertyAddress.toNullableString(props.postalCode),
-      latitude: props.latitude,
-      longitude: props.longitude,
-    });
-  }
-
-  private static toNullableString(value: string | null | undefined): string | null {
-    return value ?? null;
-  }
-
-  private static assertValidPlaceId(placeId: string): void {
-    if (!placeId || placeId.trim().length === 0) {
-      throw new DomainException('El placeId es obligatorio', ErrorCode.VALIDATION_ERROR);
-    }
-  }
-
-  private static assertValidFormatted(formatted: string): void {
-    if (!formatted || formatted.trim().length === 0) {
+  constructor(props: PropertyAddressProps) {
+    if (!props.addressFormatted || props.addressFormatted.trim() === '') {
       throw new DomainException(
         'La dirección formateada es obligatoria',
         ErrorCode.VALIDATION_ERROR,
       );
     }
-  }
-
-  private static assertValidLatitude(latitude: number): void {
-    if (Number.isNaN(latitude) || latitude < MIN_LATITUDE || latitude > MAX_LATITUDE) {
+    if (!props.addressCity || props.addressCity.trim() === '') {
+      throw new DomainException(
+        'La ciudad de la dirección es obligatoria',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (!props.addressCountry || props.addressCountry.trim() === '') {
+      throw new DomainException(
+        'El país de la dirección es obligatorio',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    if (
+      props.addressLatitude !== null &&
+      (props.addressLatitude < -90 || props.addressLatitude > 90)
+    ) {
       throw new DomainException('La latitud debe estar entre -90 y 90', ErrorCode.VALIDATION_ERROR);
     }
-  }
-
-  private static assertValidLongitude(longitude: number): void {
-    if (Number.isNaN(longitude) || longitude < MIN_LONGITUDE || longitude > MAX_LONGITUDE) {
+    if (
+      props.addressLongitude !== null &&
+      (props.addressLongitude < -180 || props.addressLongitude > 180)
+    ) {
       throw new DomainException(
         'La longitud debe estar entre -180 y 180',
         ErrorCode.VALIDATION_ERROR,
       );
     }
+    super({
+      addressPlaceId: props.addressPlaceId,
+      addressFormatted: props.addressFormatted,
+      addressStreet: props.addressStreet,
+      addressStreetNumber: props.addressStreetNumber,
+      addressNeighborhood: props.addressNeighborhood,
+      addressCity: props.addressCity,
+      addressState: props.addressState,
+      addressCountry: props.addressCountry,
+      addressPostalCode: props.addressPostalCode,
+      addressLatitude: props.addressLatitude,
+      addressLongitude: props.addressLongitude,
+    });
   }
 
-  get placeId(): string {
-    return this.props.placeId;
+  get addressPlaceId(): string | null {
+    return this.props.addressPlaceId;
+  }
+  get addressFormatted(): string {
+    return this.props.addressFormatted;
+  }
+  get addressStreet(): string | null {
+    return this.props.addressStreet;
+  }
+  get addressStreetNumber(): string | null {
+    return this.props.addressStreetNumber;
+  }
+  get addressNeighborhood(): string | null {
+    return this.props.addressNeighborhood;
+  }
+  get addressCity(): string {
+    return this.props.addressCity;
+  }
+  get addressState(): string | null {
+    return this.props.addressState;
+  }
+  get addressCountry(): string {
+    return this.props.addressCountry;
+  }
+  get addressPostalCode(): string | null {
+    return this.props.addressPostalCode;
+  }
+  get addressLatitude(): number | null {
+    return this.props.addressLatitude;
+  }
+  get addressLongitude(): number | null {
+    return this.props.addressLongitude;
   }
 
-  get formatted(): string {
-    return this.props.formatted;
-  }
-
-  get street(): string | null {
-    return this.props.street;
-  }
-
-  get streetNumber(): string | null {
-    return this.props.streetNumber;
-  }
-
-  get floor(): string | null {
-    return this.props.floor;
-  }
-
-  get apartment(): string | null {
-    return this.props.apartment;
-  }
-
-  get neighborhood(): string | null {
-    return this.props.neighborhood;
-  }
-
-  get city(): string | null {
-    return this.props.city;
-  }
-
-  get province(): string | null {
-    return this.props.province;
-  }
-
-  get country(): string | null {
-    return this.props.country;
-  }
-
-  get postalCode(): string | null {
-    return this.props.postalCode;
-  }
-
-  get latitude(): number {
-    return this.props.latitude;
-  }
-
-  get longitude(): number {
-    return this.props.longitude;
-  }
-
-  // Equality is anchored to placeId — the canonical address identifier from
-  // the place resolver. Two addresses that resolve to the same placeId are
-  // considered the same address even if other components drift.
-  override equals(other: ValueObject<PropertyAddressProps>): boolean {
-    if (other === null || other === undefined) {
-      return false;
-    }
-    return this.props.placeId === other.props.placeId;
+  static fromCreateDto(dto: {
+    addressPlaceId?: string | null;
+    addressFormatted: string;
+    addressStreet?: string | null;
+    addressStreetNumber?: string | null;
+    addressNeighborhood?: string | null;
+    addressCity: string;
+    addressState?: string | null;
+    addressCountry: string;
+    addressPostalCode?: string | null;
+    addressLatitude?: number | null;
+    addressLongitude?: number | null;
+  }): PropertyAddress {
+    return new PropertyAddress({
+      addressPlaceId: dto.addressPlaceId ?? null,
+      addressFormatted: dto.addressFormatted,
+      addressStreet: dto.addressStreet ?? null,
+      addressStreetNumber: dto.addressStreetNumber ?? null,
+      addressNeighborhood: dto.addressNeighborhood ?? null,
+      addressCity: dto.addressCity,
+      addressState: dto.addressState ?? null,
+      addressCountry: dto.addressCountry,
+      addressPostalCode: dto.addressPostalCode ?? null,
+      addressLatitude: dto.addressLatitude ?? null,
+      addressLongitude: dto.addressLongitude ?? null,
+    });
   }
 }

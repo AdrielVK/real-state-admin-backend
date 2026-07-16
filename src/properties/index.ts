@@ -1,10 +1,14 @@
+export { CreatePropertyCommand, CreatePropertyDto, CreatePropertyUseCase } from './application';
 export {
+  CharacteristicCategory,
   ConservationState,
+  type IPropertyRepository,
+  IPropertyRepositoryToken,
   Property,
   PropertyAddress,
+  PropertyCharacteristicValue,
   PropertyFeatures,
   PropertyId,
-  PropertyInternalId,
   PropertyStatus,
   PropertyType,
 } from './domain';

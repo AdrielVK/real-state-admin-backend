@@ -30,7 +30,7 @@ export class CreateUserCommand implements ICommand<User> {
 }
 
 @Injectable()
-export class CreateUserHandler implements ICommandHandler<CreateUserCommand, User> {
+export class CreateUserUseCase implements ICommandHandler<CreateUserCommand, User> {
   constructor(
     @Inject(IUserRepositoryToken) private readonly userRepository: IUserRepository,
     @Inject(IPasswordHasherToken) private readonly passwordHasher: IPasswordHasher,

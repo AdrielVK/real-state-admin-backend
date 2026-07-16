@@ -1,5 +1,8 @@
 export enum PropertyStatus {
   DISPONIBLE = 'disponible',
-  BAJO_CONTRATO = 'bajo_contrato',
-  ARCHIVADO = 'archivado',
+  RESERVADA = 'reservada',
+  VENDIDA = 'vendida',
+  ALQUILADA = 'alquilada',
+  EN_PROCESO = 'en_proceso',
+  NO_DISPONIBLE = 'no_disponible',
 }

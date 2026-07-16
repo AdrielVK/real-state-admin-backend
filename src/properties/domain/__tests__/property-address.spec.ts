@@ -1,112 +1,101 @@
-import { DomainException, ErrorCode } from '@shared/domain';
-
 import { PropertyAddress } from '../value-objects/property-address.value-object';
 
-const validBaseProps = {
-  placeId: 'place-123',
-  formatted: 'Av. Corrientes 1234, CABA, Argentina',
-  street: 'Av. Corrientes',
-  streetNumber: '1234',
-  floor: '5',
-  apartment: 'A',
-  neighborhood: 'San Nicolás',
-  city: 'CABA',
-  province: 'Buenos Aires',
-  country: 'Argentina',
-  postalCode: 'C1043',
-  latitude: -34.6037,
-  longitude: -58.3816,
+const VALID_FULL_ADDRESS = {
+  addressPlaceId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+  addressFormatted: 'Av. Corrientes 1234, CABA, Argentina',
+  addressStreet: 'Av. Corrientes',
+  addressStreetNumber: '1234',
+  addressNeighborhood: 'San Nicolás',
+  addressCity: 'CABA',
+  addressState: 'Buenos Aires',
+  addressCountry: 'Argentina',
+  addressPostalCode: 'C1043',
+  addressLatitude: -34.6037,
+  addressLongitude: -58.3816,
 };
 
 describe('PropertyAddress', () => {
-  it('should create an address with all valid fields', () => {
-    const address = new PropertyAddress(validBaseProps);
-    expect(address.placeId).toBe(validBaseProps.placeId);
-    expect(address.formatted).toBe(validBaseProps.formatted);
-    expect(address.street).toBe(validBaseProps.street);
-    expect(address.latitude).toBe(validBaseProps.latitude);
-    expect(address.longitude).toBe(validBaseProps.longitude);
+  it('should build a valid address with all fields', () => {
+    const address = new PropertyAddress(VALID_FULL_ADDRESS);
+
+    expect(address.addressPlaceId).toBe(VALID_FULL_ADDRESS.addressPlaceId);
+    expect(address.addressFormatted).toBe(VALID_FULL_ADDRESS.addressFormatted);
+    expect(address.addressStreet).toBe(VALID_FULL_ADDRESS.addressStreet);
+    expect(address.addressStreetNumber).toBe(VALID_FULL_ADDRESS.addressStreetNumber);
+    expect(address.addressNeighborhood).toBe(VALID_FULL_ADDRESS.addressNeighborhood);
+    expect(address.addressCity).toBe(VALID_FULL_ADDRESS.addressCity);
+    expect(address.addressState).toBe(VALID_FULL_ADDRESS.addressState);
+    expect(address.addressCountry).toBe(VALID_FULL_ADDRESS.addressCountry);
+    expect(address.addressPostalCode).toBe(VALID_FULL_ADDRESS.addressPostalCode);
+    expect(address.addressLatitude).toBe(VALID_FULL_ADDRESS.addressLatitude);
+    expect(address.addressLongitude).toBe(VALID_FULL_ADDRESS.addressLongitude);
   });
 
-  it('should accept an address with only required fields', () => {
-    const address = new PropertyAddress({
-      placeId: 'place-456',
-      formatted: 'Some address',
-      street: null,
-      streetNumber: null,
-      floor: null,
-      apartment: null,
-      neighborhood: null,
-      city: null,
-      province: null,
-      country: null,
-      postalCode: null,
-      latitude: 0,
-      longitude: 0,
-    });
-    expect(address.placeId).toBe('place-456');
-    expect(address.street).toBeNull();
-    expect(address.latitude).toBe(0);
+  it('should require addressFormatted', () => {
+    expect(
+      () =>
+        new PropertyAddress({
+          ...VALID_FULL_ADDRESS,
+          addressFormatted: '',
+        }),
+    ).toThrow();
   });
 
-  it('should throw DomainException when placeId is empty', () => {
-    expect(() => {
-      new PropertyAddress({ ...validBaseProps, placeId: '' });
-    }).toThrow(DomainException);
+  it('should require addressCity', () => {
+    expect(
+      () =>
+        new PropertyAddress({
+          ...VALID_FULL_ADDRESS,
+          addressCity: '',
+        }),
+    ).toThrow();
   });
 
-  it('should throw DomainException when formatted is empty', () => {
-    expect(() => {
-      new PropertyAddress({ ...validBaseProps, formatted: '' });
-    }).toThrow(DomainException);
+  it('should require addressCountry', () => {
+    expect(
+      () =>
+        new PropertyAddress({
+          ...VALID_FULL_ADDRESS,
+          addressCountry: '',
+        }),
+    ).toThrow();
   });
 
-  it('should throw DomainException for latitude > 90', () => {
-    expect(() => {
-      new PropertyAddress({ ...validBaseProps, latitude: 95 });
-    }).toThrow(DomainException);
-    try {
-      new PropertyAddress({ ...validBaseProps, latitude: 95 });
-    } catch (error) {
-      expect((error as DomainException).code).toBe(ErrorCode.VALIDATION_ERROR);
-    }
+  it('should reject latitudes outside the valid range', () => {
+    expect(() => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLatitude: 100 })).toThrow();
+    expect(() => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLatitude: -100 })).toThrow();
   });
 
-  it('should throw DomainException for latitude < -90', () => {
-    expect(() => {
-      new PropertyAddress({ ...validBaseProps, latitude: -95 });
-    }).toThrow(DomainException);
+  it('should reject longitudes outside the valid range', () => {
+    expect(() => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLongitude: 200 })).toThrow();
+    expect(() => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLongitude: -200 })).toThrow();
   });
 
-  it('should throw DomainException for longitude > 180', () => {
-    expect(() => {
-      new PropertyAddress({ ...validBaseProps, longitude: 200 });
-    }).toThrow(DomainException);
+  it('should accept boundary latitude values', () => {
+    expect(() => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLatitude: 90 })).not.toThrow();
+    expect(
+      () => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLatitude: -90 }),
+    ).not.toThrow();
   });
 
-  it('should throw DomainException for longitude < -180', () => {
-    expect(() => {
-      new PropertyAddress({ ...validBaseProps, longitude: -200 });
-    }).toThrow(DomainException);
+  it('should accept boundary longitude values', () => {
+    expect(
+      () => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLongitude: 180 }),
+    ).not.toThrow();
+    expect(
+      () => new PropertyAddress({ ...VALID_FULL_ADDRESS, addressLongitude: -180 }),
+    ).not.toThrow();
   });
 
-  describe('equals()', () => {
-    it('should be equal to another address with the same placeId', () => {
-      const a = new PropertyAddress(validBaseProps);
-      const b = new PropertyAddress({ ...validBaseProps });
-      expect(a.equals(b)).toBe(true);
-    });
+  it('should be equal to another PropertyAddress with the same values', () => {
+    const a = new PropertyAddress(VALID_FULL_ADDRESS);
+    const b = new PropertyAddress(VALID_FULL_ADDRESS);
+    expect(a.equals(b)).toBe(true);
+  });
 
-    it('should NOT be equal to an address with a different placeId', () => {
-      const a = new PropertyAddress(validBaseProps);
-      const b = new PropertyAddress({ ...validBaseProps, placeId: 'other-place' });
-      expect(a.equals(b)).toBe(false);
-    });
-
-    it('should return false for null or undefined', () => {
-      const a = new PropertyAddress(validBaseProps);
-      expect(a.equals(null as never)).toBe(false);
-      expect(a.equals(undefined as never)).toBe(false);
-    });
+  it('should NOT be equal to another PropertyAddress with different formatted', () => {
+    const a = new PropertyAddress(VALID_FULL_ADDRESS);
+    const b = new PropertyAddress({ ...VALID_FULL_ADDRESS, addressFormatted: 'Other 999' });
+    expect(a.equals(b)).toBe(false);
   });
 });

@@ -17,7 +17,7 @@ import {
   RefreshToken,
   UserId,
 } from '../../domain';
-import type { LoginResult } from './login.handler';
+import type { LoginResult } from './login.use-case';
 
 export class RefreshCommand implements ICommand<LoginResult> {
   readonly _resultType?: LoginResult;
@@ -26,7 +26,7 @@ export class RefreshCommand implements ICommand<LoginResult> {
 }
 
 @Injectable()
-export class RefreshHandler implements ICommandHandler<RefreshCommand, LoginResult> {
+export class RefreshUseCase implements ICommandHandler<RefreshCommand, LoginResult> {
   constructor(
     @Inject(IRefreshTokenRepositoryToken)
     private readonly refreshTokenRepository: IRefreshTokenRepository,

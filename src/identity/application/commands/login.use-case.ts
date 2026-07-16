@@ -41,7 +41,7 @@ export class LoginCommand implements ICommand<LoginResult> {
 }
 
 @Injectable()
-export class LoginHandler implements ICommandHandler<LoginCommand, LoginResult> {
+export class LoginUseCase implements ICommandHandler<LoginCommand, LoginResult> {
   constructor(
     @Inject(IUserRepositoryToken) private readonly userRepository: IUserRepository,
     @Inject(IPasswordHasherToken) private readonly passwordHasher: IPasswordHasher,

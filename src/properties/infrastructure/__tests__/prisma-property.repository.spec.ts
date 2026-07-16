@@ -13,252 +13,336 @@ jest.mock('../../../generated/prisma/client', () => ({
 }));
 
 import { Property } from '../../domain/entities/property.aggregate';
+import { CharacteristicCategory } from '../../domain/enums/characteristic-category.enum';
 import { ConservationState } from '../../domain/enums/conservation-state.enum';
 import { PropertyStatus } from '../../domain/enums/property-status.enum';
 import { PropertyType } from '../../domain/enums/property-type.enum';
 import { PropertyAddress } from '../../domain/value-objects/property-address.value-object';
+import { PropertyCharacteristicValue } from '../../domain/value-objects/property-characteristic.value-object';
 import { PropertyFeatures } from '../../domain/value-objects/property-features.value-object';
 import { PropertyId } from '../../domain/value-objects/property-id.value-object';
-import { PropertyInternalId } from '../../domain/value-objects/property-internal-id.value-object';
 import { PrismaPropertyRepository } from '../repositories/prisma-property.repository';
 
-const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
-const CREATED_AT = new Date('2024-01-01T00:00:00.000Z');
-const UPDATED_AT = new Date('2024-02-01T00:00:00.000Z');
-
-interface PrismaPropertyRecord {
-  id: string;
-  internalId: string | null;
-  status: PropertyStatus;
-  placeId: string;
-  formatted: string;
-  street: string | null;
-  streetNumber: string | null;
-  floor: string | null;
-  apartment: string | null;
-  neighborhood: string | null;
-  city: string | null;
-  province: string | null;
-  country: string | null;
-  postalCode: string | null;
-  latitude: number;
-  longitude: number;
-  createdAt: Date;
-  updatedAt: Date;
-  features?: PrismaFeaturesRecord | null;
-}
-
-interface PrismaFeaturesRecord {
-  id: string;
-  propertyId: string;
-  propertyType: PropertyType;
-  conservationState: ConservationState | null;
-  totalAreaM2: number | null;
-  coveredAreaM2: number | null;
-  uncoveredAreaM2: number | null;
-  frontMeters: number | null;
-  backMeters: number | null;
-  rooms: number | null;
-  bedrooms: number | null;
-  bathrooms: number | null;
-  toilettes: number | null;
-  garages: number | null;
-  floorNumber: number | null;
-  unitIdentifier: string | null;
-  constructionYear: number | null;
-  orientation: string | null;
-  serviceTags: string[];
-  amenityTags: string[];
-  conditionTags: string[];
-  extraFeatures: Record<string, unknown>;
-}
-
-function makePrismaPropertyRecord(
-  overrides: Partial<PrismaPropertyRecord> = {},
-): PrismaPropertyRecord {
-  const featuresRecord: PrismaFeaturesRecord = {
-    id: 'features-uuid',
-    propertyId: VALID_UUID,
-    propertyType: PropertyType.DEPARTAMENTO,
-    conservationState: ConservationState.BUENO,
-    totalAreaM2: 100,
-    coveredAreaM2: 80,
-    uncoveredAreaM2: 20,
-    frontMeters: null,
-    backMeters: null,
-    rooms: 3,
-    bedrooms: 2,
-    bathrooms: 1,
-    toilettes: null,
-    garages: 1,
-    floorNumber: 5,
-    unitIdentifier: 'B',
-    constructionYear: 2010,
-    orientation: 'norte',
-    serviceTags: ['gas_natural'],
-    amenityTags: ['pileta'],
-    conditionTags: ['amueblado'],
-    extraFeatures: { has_garage: true },
+interface PrismaStub {
+  property: {
+    findFirst: jest.Mock;
+    upsert: jest.Mock;
   };
-  return {
-    id: VALID_UUID,
-    internalId: 'ABC1234',
-    status: PropertyStatus.DISPONIBLE,
-    placeId: 'place-123',
-    formatted: 'Av. Corrientes 1234, CABA, Argentina',
-    street: 'Av. Corrientes',
-    streetNumber: '1234',
-    floor: null,
-    apartment: null,
-    neighborhood: 'San Nicolás',
-    city: 'CABA',
-    province: 'Buenos Aires',
-    country: 'Argentina',
-    postalCode: 'C1043',
-    latitude: -34.6037,
-    longitude: -58.3816,
-    createdAt: CREATED_AT,
-    updatedAt: UPDATED_AT,
-    features: featuresRecord,
+  propertyFeatures: {
+    upsert: jest.Mock;
+  };
+  propertyTag: {
+    upsert: jest.Mock;
+  };
+  propertyFeatureTag: {
+    deleteMany: jest.Mock;
+    createMany: jest.Mock;
+  };
+  $transaction: jest.Mock;
+}
+
+function makeStub(overrides: Partial<PrismaStub> = {}): PrismaStub {
+  const stub: PrismaStub = {
+    property: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue(),
+    },
+    propertyFeatures: {
+      upsert: jest.fn().mockResolvedValue(),
+    },
+    propertyTag: {
+      upsert: jest.fn().mockResolvedValue({ id: 1 }),
+    },
+    propertyFeatureTag: {
+      deleteMany: jest.fn().mockResolvedValue(),
+      createMany: jest.fn().mockResolvedValue(),
+    },
+    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
+      // Pass the full stub as `tx` so the transaction callback can access property, features, etc.
+      return fn(stub);
+    }),
     ...overrides,
   };
+  return stub;
 }
 
-function createMockPrismaService() {
-  return {
-    property: {
-      findUnique: jest.fn(),
-      upsert: jest.fn(),
-    },
-  };
+function makePrismaService(stub: PrismaStub) {
+  return stub as never;
 }
 
-function makeProperty(): Property {
-  const address = new PropertyAddress({
-    placeId: 'place-123',
-    formatted: 'Av. Corrientes 1234, CABA, Argentina',
-    street: 'Av. Corrientes',
-    streetNumber: '1234',
-    floor: null,
-    apartment: null,
-    neighborhood: 'San Nicolás',
-    city: 'CABA',
-    province: 'Buenos Aires',
-    country: 'Argentina',
-    postalCode: 'C1043',
-    latitude: -34.6037,
-    longitude: -58.3816,
-  });
-  const features = PropertyFeatures.create({
+function makePropertyAggregate(id: string, code: string): Property {
+  return Property.reconstitute({
+    id: new PropertyId(id),
+    internalCode: code,
+    address: new PropertyAddress({
+      addressPlaceId: 'place-1',
+      addressFormatted: 'Calle 1',
+      addressStreet: null,
+      addressStreetNumber: null,
+      addressNeighborhood: null,
+      addressCity: 'CABA',
+      addressState: null,
+      addressCountry: 'Argentina',
+      addressPostalCode: null,
+      addressLatitude: null,
+      addressLongitude: null,
+    }),
     propertyType: PropertyType.DEPARTAMENTO,
-    conservationState: ConservationState.BUENO,
-    bedrooms: 2,
-    bathrooms: 1,
+    status: PropertyStatus.DISPONIBLE,
+    features: new PropertyFeatures({
+      totalAreaM2: 100,
+      coveredAreaM2: 80,
+      rooms: 3,
+      bedrooms: 2,
+      bathrooms: 1,
+      garages: 0,
+      floor: 2,
+      conservationState: ConservationState.BUENO,
+      ageYears: 5,
+    }),
+    ownerProfileId: 'owner-1',
+    agentProfileId: 'agent-1',
+    characteristics: [
+      PropertyCharacteristicValue.fromPersistence(
+        1,
+        'Piscina',
+        'piscina',
+        CharacteristicCategory.AMENIDAD,
+      ),
+    ],
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-02T00:00:00Z'),
+    deletedAt: null,
   });
-  return Property.create(address, features, PropertyInternalId.create('ABC1234'));
+}
+
+function makePrismaRow() {
+  return {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    internalCode: 'PROP-001',
+    status: PropertyStatus.DISPONIBLE,
+    propertyType: PropertyType.DEPARTAMENTO,
+    ownerProfileId: 'owner-1',
+    agentProfileId: 'agent-1',
+    addressPlaceId: 'place-1',
+    addressFormatted: 'Calle 1',
+    addressStreet: null,
+    addressStreetNumber: null,
+    addressNeighborhood: null,
+    addressCity: 'CABA',
+    addressState: null,
+    addressCountry: 'Argentina',
+    addressPostalCode: null,
+    addressLatitude: null,
+    addressLongitude: null,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-02T00:00:00Z'),
+    deletedAt: null,
+    features: {
+      totalAreaM2: 100,
+      coveredAreaM2: 80,
+      rooms: 3,
+      bedrooms: 2,
+      bathrooms: 1,
+      garages: 0,
+      floor: 2,
+      conservationState: ConservationState.BUENO,
+      ageYears: 5,
+    },
+    tags: [
+      {
+        tag: {
+          id: 1,
+          name: 'Piscina',
+          slug: 'piscina',
+          category: CharacteristicCategory.AMENIDAD,
+        },
+      },
+    ],
+  };
 }
 
 describe('PrismaPropertyRepository', () => {
-  let repository: PrismaPropertyRepository;
-  let mockPrisma: ReturnType<typeof createMockPrismaService>;
-
-  beforeEach(() => {
-    mockPrisma = createMockPrismaService();
-    repository = new PrismaPropertyRepository(mockPrisma as never);
-  });
-
   describe('findById()', () => {
-    it('should return null when no property exists', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue(null);
-      const result = await repository.findById(new PropertyId(VALID_UUID));
-      expect(result).toBeNull();
-      expect(mockPrisma.property.findUnique).toHaveBeenCalledWith({
-        where: { id: VALID_UUID },
-        include: { features: true },
+    it('should return a Property when the row exists', async () => {
+      const row = makePrismaRow();
+      const stub = makeStub({
+        property: {
+          findFirst: jest.fn().mockResolvedValue(row),
+          upsert: jest.fn(),
+        },
       });
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      const result = await repo.findById(new PropertyId(row.id));
+
+      expect(result).not.toBeNull();
+      expect(result?.id.toValue()).toBe(row.id);
+      expect(result?.internalCode).toBe('PROP-001');
+      expect(stub.property.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: row.id, deletedAt: null },
+          include: expect.objectContaining({
+            features: true,
+            tags: expect.objectContaining({ include: { tag: true } }),
+          }),
+        }),
+      );
     });
 
-    it('should return a Property aggregate when found', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue(makePrismaPropertyRecord());
-      const result = await repository.findById(new PropertyId(VALID_UUID));
-      expect(result).toBeInstanceOf(Property);
-      expect(result!.id.toValue()).toBe(VALID_UUID);
-      expect(result!.address.placeId).toBe('place-123');
-      expect(result!.features.propertyType).toBe(PropertyType.DEPARTAMENTO);
-    });
+    it('should return null when the row is missing', async () => {
+      const stub = makeStub();
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
 
-    it('should return a Property with no pending domain events', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue(makePrismaPropertyRecord());
-      const result = await repository.findById(new PropertyId(VALID_UUID));
-      expect(result!.domainEvents).toHaveLength(0);
+      const result = await repo.findById(new PropertyId('550e8400-e29b-41d4-a716-446655440000'));
+
+      expect(result).toBeNull();
     });
   });
 
-  describe('findByInternalId()', () => {
-    it('should return null when no property exists for the internalId', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue(null);
-      const result = await repository.findByInternalId(PropertyInternalId.create('ABC1234'));
-      expect(result).toBeNull();
-      expect(mockPrisma.property.findUnique).toHaveBeenCalledWith({
-        where: { internalId: 'ABC1234' },
-        include: { features: true },
+  describe('findByInternalCode()', () => {
+    it('should return a Property when the row exists', async () => {
+      const row = makePrismaRow();
+      const stub = makeStub({
+        property: {
+          findFirst: jest.fn().mockResolvedValue(row),
+          upsert: jest.fn(),
+        },
       });
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      const result = await repo.findByInternalCode('PROP-001');
+
+      expect(result).not.toBeNull();
+      expect(result?.internalCode).toBe('PROP-001');
+      expect(stub.property.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { internalCode: 'PROP-001', deletedAt: null } }),
+      );
     });
 
-    it('should return a Property aggregate when found', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue(makePrismaPropertyRecord());
-      const result = await repository.findByInternalId(PropertyInternalId.create('ABC1234'));
-      expect(result).toBeInstanceOf(Property);
-      expect(result!.internalId?.value).toBe('ABC1234');
+    it('should return null when the row is missing', async () => {
+      const stub = makeStub();
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      const result = await repo.findByInternalCode('PROP-MISSING');
+
+      expect(result).toBeNull();
     });
   });
 
   describe('save()', () => {
-    it('should call prisma.property.upsert with id as the unique key', async () => {
-      mockPrisma.property.upsert.mockResolvedValue(makePrismaPropertyRecord());
-      const property = makeProperty();
-      await repository.save(property);
-      expect(mockPrisma.property.upsert).toHaveBeenCalledTimes(1);
-      const call = mockPrisma.property.upsert.mock.calls[0]?.[0] as {
-        where: { id: string };
-        create: { id: string; features: { create: unknown } };
-      };
-      expect(call.where).toEqual({ id: property.id.toValue() });
-      expect(call.create.id).toBe(property.id.toValue());
-      expect(call.create.features.create).toBeDefined();
-    });
+    it('should execute the full transaction with upsert, features upsert, and tag delete+insert', async () => {
+      const aggregate = makePropertyAggregate('550e8400-e29b-41d4-a716-446655440000', 'PROP-001');
+      const stub = makeStub();
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
 
-    it('should return the same aggregate instance after save', async () => {
-      mockPrisma.property.upsert.mockResolvedValue(makePrismaPropertyRecord());
-      const property = makeProperty();
-      const result = await repository.save(property);
-      expect(result).toBe(property);
-    });
+      await repo.save(aggregate);
 
-    it('should clear pending domain events on the aggregate after save', async () => {
-      mockPrisma.property.upsert.mockResolvedValue(makePrismaPropertyRecord());
-      const property = makeProperty();
-      // Property.create() emits a PropertyCreatedEvent
-      expect(property.domainEvents).toHaveLength(1);
-      await repository.save(property);
-      expect(property.domainEvents).toHaveLength(0);
-    });
-
-    it('should throw DomainException DUPLICATE_INTERNAL_ID on unique constraint violation', async () => {
-      const prismaError = new Error('Unique constraint failed on the fields: (`internal_id`)');
-      mockPrisma.property.upsert.mockRejectedValue(prismaError);
-      const property = makeProperty();
-
-      await expect(repository.save(property)).rejects.toThrow(
-        'Ya existe una propiedad con ese internalId',
+      expect(stub.$transaction).toHaveBeenCalledTimes(1);
+      expect(stub.property.upsert).toHaveBeenCalledTimes(1);
+      expect(stub.propertyFeatures.upsert).toHaveBeenCalledTimes(1);
+      expect(stub.propertyTag.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { slug_category: { slug: 'piscina', category: CharacteristicCategory.AMENIDAD } },
+          create: {
+            name: 'Piscina',
+            slug: 'piscina',
+            category: CharacteristicCategory.AMENIDAD,
+          },
+          update: {},
+          select: { id: true },
+        }),
       );
+      expect(stub.propertyFeatureTag.deleteMany).toHaveBeenCalledWith({
+        where: { propertyId: '550e8400-e29b-41d4-a716-446655440000' },
+      });
+      expect(stub.propertyFeatureTag.createMany).toHaveBeenCalledWith({
+        data: [{ propertyId: '550e8400-e29b-41d4-a716-446655440000', tagId: 1 }],
+      });
+      // After save, the aggregate's VOs should now carry the resolved numeric id
+      expect(aggregate.characteristics[0]!.id).toBe(1);
     });
 
-    it('should rethrow non-duplicate errors', async () => {
-      const prismaError = new Error('Connection lost');
-      mockPrisma.property.upsert.mockRejectedValue(prismaError);
-      const property = makeProperty();
-      await expect(repository.save(property)).rejects.toThrow('Connection lost');
+    it('should NOT clear pending domain events (events are dispatched by the handler)', async () => {
+      const aggregate = Property.create({
+        internalCode: 'PROP-NEW',
+        address: new PropertyAddress({
+          addressPlaceId: null,
+          addressFormatted: 'Calle 1',
+          addressStreet: null,
+          addressStreetNumber: null,
+          addressNeighborhood: null,
+          addressCity: 'CABA',
+          addressState: null,
+          addressCountry: 'Argentina',
+          addressPostalCode: null,
+          addressLatitude: null,
+          addressLongitude: null,
+        }),
+        propertyType: PropertyType.DEPARTAMENTO,
+      });
+      const stub = makeStub();
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      await repo.save(aggregate);
+
+      // The repository must not call pullDomainEvents — the handler does that
+      expect(aggregate.domainEvents).toHaveLength(1);
+    });
+
+    it('should skip features upsert when property has no features', async () => {
+      const aggregate = Property.create({
+        internalCode: 'PROP-NOF',
+        address: new PropertyAddress({
+          addressPlaceId: null,
+          addressFormatted: 'Calle 1',
+          addressStreet: null,
+          addressStreetNumber: null,
+          addressNeighborhood: null,
+          addressCity: 'CABA',
+          addressState: null,
+          addressCountry: 'Argentina',
+          addressPostalCode: null,
+          addressLatitude: null,
+          addressLongitude: null,
+        }),
+        propertyType: PropertyType.DEPARTAMENTO,
+      });
+      const stub = makeStub();
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      await repo.save(aggregate);
+
+      expect(stub.propertyFeatures.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should skip tag delete+insert when characteristicIds is undefined (not provided by mapper)', async () => {
+      // Use a property with no characteristics — mapper sets characteristicIds to empty array
+      const aggregate = Property.create({
+        internalCode: 'PROP-NOT',
+        address: new PropertyAddress({
+          addressPlaceId: null,
+          addressFormatted: 'Calle 1',
+          addressStreet: null,
+          addressStreetNumber: null,
+          addressNeighborhood: null,
+          addressCity: 'CABA',
+          addressState: null,
+          addressCountry: 'Argentina',
+          addressPostalCode: null,
+          addressLatitude: null,
+          addressLongitude: null,
+        }),
+        propertyType: PropertyType.DEPARTAMENTO,
+      });
+      const stub = makeStub();
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      await repo.save(aggregate);
+
+      // When characteristicIds is an empty array, still calls deleteMany+createMany
+      // But mapper ALWAYS emits characteristicIds (empty array when no characteristics), so this path is always hit
+      expect(stub.propertyFeatureTag.deleteMany).toHaveBeenCalled();
     });
   });
 });

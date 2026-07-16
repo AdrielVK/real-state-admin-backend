@@ -6,7 +6,7 @@ import { AdministrativeProfile } from '../../domain/entities/administrative-prof
 import { AgentProfile } from '../../domain/entities/agent-profile.aggregate';
 import { ClientProfile } from '../../domain/entities/client-profile.aggregate';
 import { VisitorProfile } from '../../domain/entities/visitor-profile.aggregate';
-import { CreateProfileOnUserRegisteredHandler } from '../handlers/create-profile-on-user-registered.handler';
+import { CreateProfileOnUserRegisteredUseCase } from '../handlers/create-profile-on-user-registered.use-case';
 
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const PROFILE_UUID = '550e8400-e29b-41d4-a716-446655440001';
@@ -18,20 +18,20 @@ function makeMockRepository(): jest.Mocked<IProfileRepository> {
   } as jest.Mocked<IProfileRepository>;
 }
 
-function getHandlerLogger(handler: CreateProfileOnUserRegisteredHandler): {
+function getUseCaseLogger(useCase: CreateProfileOnUserRegisteredUseCase): {
   error: (message: string, trace?: string) => void;
 } {
-  return (handler as unknown as { logger: { error: (message: string, trace?: string) => void } })
+  return (useCase as unknown as { logger: { error: (message: string, trace?: string) => void } })
     .logger;
 }
 
-describe('CreateProfileOnUserRegisteredHandler', () => {
-  let handler: CreateProfileOnUserRegisteredHandler;
+describe('CreateProfileOnUserRegisteredUseCase', () => {
+  let useCase: CreateProfileOnUserRegisteredUseCase;
   let mockRepository: jest.Mocked<IProfileRepository>;
 
   beforeEach(() => {
     mockRepository = makeMockRepository();
-    handler = new CreateProfileOnUserRegisteredHandler(mockRepository);
+    useCase = new CreateProfileOnUserRegisteredUseCase(mockRepository);
   });
 
   describe('handle() — success path', () => {
@@ -39,7 +39,7 @@ describe('CreateProfileOnUserRegisteredHandler', () => {
       const existing = AgentProfile.reconstitute(PROFILE_UUID, USER_ID, new Date(), new Date());
       mockRepository.findByUserId.mockResolvedValue(existing);
 
-      await handler.handle({ userId: USER_ID, role: 'AGENT' });
+      await useCase.handle({ userId: USER_ID, role: 'AGENT' });
 
       expect(mockRepository.findByUserId).toHaveBeenCalledWith(USER_ID);
       expect(mockRepository.save).not.toHaveBeenCalled();
@@ -48,7 +48,7 @@ describe('CreateProfileOnUserRegisteredHandler', () => {
     it('should create a profile when none exists, using the role from the event', async () => {
       mockRepository.findByUserId.mockResolvedValue(null);
 
-      await handler.handle({ userId: USER_ID, role: 'AGENT' });
+      await useCase.handle({ userId: USER_ID, role: 'AGENT' });
 
       expect(mockRepository.save).toHaveBeenCalledTimes(1);
       const saved = mockRepository.save.mock.calls[0]?.[0] as Profile<ProfileId>;
@@ -58,35 +58,35 @@ describe('CreateProfileOnUserRegisteredHandler', () => {
 
     it('should map role AGENT to AgentProfile', async () => {
       mockRepository.findByUserId.mockResolvedValue(null);
-      await handler.handle({ userId: USER_ID, role: 'AGENT' });
+      await useCase.handle({ userId: USER_ID, role: 'AGENT' });
       const saved = mockRepository.save.mock.calls[0]?.[0] as Profile<ProfileId>;
       expect(saved).toBeInstanceOf(AgentProfile);
     });
 
     it('should map role ADMIN to AdminProfile', async () => {
       mockRepository.findByUserId.mockResolvedValue(null);
-      await handler.handle({ userId: USER_ID, role: 'ADMIN' });
+      await useCase.handle({ userId: USER_ID, role: 'ADMIN' });
       const saved = mockRepository.save.mock.calls[0]?.[0] as Profile<ProfileId>;
       expect(saved).toBeInstanceOf(AdminProfile);
     });
 
     it('should map role ADMINISTRATIVE to AdministrativeProfile', async () => {
       mockRepository.findByUserId.mockResolvedValue(null);
-      await handler.handle({ userId: USER_ID, role: 'ADMINISTRATIVE' });
+      await useCase.handle({ userId: USER_ID, role: 'ADMINISTRATIVE' });
       const saved = mockRepository.save.mock.calls[0]?.[0] as Profile<ProfileId>;
       expect(saved).toBeInstanceOf(AdministrativeProfile);
     });
 
     it('should map role CLIENT to ClientProfile', async () => {
       mockRepository.findByUserId.mockResolvedValue(null);
-      await handler.handle({ userId: USER_ID, role: 'CLIENT' });
+      await useCase.handle({ userId: USER_ID, role: 'CLIENT' });
       const saved = mockRepository.save.mock.calls[0]?.[0] as Profile<ProfileId>;
       expect(saved).toBeInstanceOf(ClientProfile);
     });
 
     it('should map role VISITOR to VisitorProfile', async () => {
       mockRepository.findByUserId.mockResolvedValue(null);
-      await handler.handle({ userId: USER_ID, role: 'VISITOR' });
+      await useCase.handle({ userId: USER_ID, role: 'VISITOR' });
       const saved = mockRepository.save.mock.calls[0]?.[0] as Profile<ProfileId>;
       expect(saved).toBeInstanceOf(VisitorProfile);
     });
@@ -97,7 +97,7 @@ describe('CreateProfileOnUserRegisteredHandler', () => {
       const existing = AgentProfile.reconstitute(PROFILE_UUID, USER_ID, new Date(), new Date());
       mockRepository.findByUserId.mockResolvedValue(existing);
 
-      await handler.handle({ userId: USER_ID, role: 'AGENT' });
+      await useCase.handle({ userId: USER_ID, role: 'AGENT' });
 
       expect(mockRepository.save).not.toHaveBeenCalled();
     });
@@ -106,8 +106,8 @@ describe('CreateProfileOnUserRegisteredHandler', () => {
       const existing = AgentProfile.reconstitute(PROFILE_UUID, USER_ID, new Date(), new Date());
       mockRepository.findByUserId.mockResolvedValue(existing);
 
-      await handler.handle({ userId: USER_ID, role: 'AGENT' });
-      await handler.handle({ userId: USER_ID, role: 'AGENT' });
+      await useCase.handle({ userId: USER_ID, role: 'AGENT' });
+      await useCase.handle({ userId: USER_ID, role: 'AGENT' });
 
       expect(mockRepository.findByUserId).toHaveBeenCalledTimes(2);
       expect(mockRepository.save).not.toHaveBeenCalled();
@@ -116,29 +116,29 @@ describe('CreateProfileOnUserRegisteredHandler', () => {
 
   describe('handle() — error path', () => {
     it('should log and swallow errors thrown by the repository on findByUserId', async () => {
-      const loggerErrorSpy = jest.spyOn(getHandlerLogger(handler), 'error');
+      const loggerErrorSpy = jest.spyOn(getUseCaseLogger(useCase), 'error');
       mockRepository.findByUserId.mockRejectedValue(new Error('database down'));
 
-      await expect(handler.handle({ userId: USER_ID, role: 'AGENT' })).resolves.toBeUndefined();
+      await expect(useCase.handle({ userId: USER_ID, role: 'AGENT' })).resolves.toBeUndefined();
       expect(loggerErrorSpy).toHaveBeenCalled();
       loggerErrorSpy.mockRestore();
     });
 
     it('should log and swallow errors thrown by save', async () => {
-      const loggerErrorSpy = jest.spyOn(getHandlerLogger(handler), 'error');
+      const loggerErrorSpy = jest.spyOn(getUseCaseLogger(useCase), 'error');
       mockRepository.findByUserId.mockResolvedValue(null);
       mockRepository.save.mockRejectedValue(new Error('upsert failed'));
 
-      await expect(handler.handle({ userId: USER_ID, role: 'AGENT' })).resolves.toBeUndefined();
+      await expect(useCase.handle({ userId: USER_ID, role: 'AGENT' })).resolves.toBeUndefined();
       expect(loggerErrorSpy).toHaveBeenCalled();
       loggerErrorSpy.mockRestore();
     });
 
     it('should log and swallow errors thrown by an unknown role', async () => {
-      const loggerErrorSpy = jest.spyOn(getHandlerLogger(handler), 'error');
+      const loggerErrorSpy = jest.spyOn(getUseCaseLogger(useCase), 'error');
       mockRepository.findByUserId.mockResolvedValue(null);
 
-      await expect(handler.handle({ userId: USER_ID, role: 'GHOST' })).resolves.toBeUndefined();
+      await expect(useCase.handle({ userId: USER_ID, role: 'GHOST' })).resolves.toBeUndefined();
       expect(loggerErrorSpy).toHaveBeenCalled();
       loggerErrorSpy.mockRestore();
     });

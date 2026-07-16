@@ -1,227 +1,309 @@
-// Mock the generated Prisma client to avoid import.meta issues in Jest
-class MockPrismaClient {
-  async $connect(): Promise<void> {
-    return;
-  }
-  async $disconnect(): Promise<void> {
-    return;
-  }
-}
-
-jest.mock('../../../generated/prisma/client', () => ({
-  PrismaClient: MockPrismaClient,
-}));
-
 import { Property } from '../../domain/entities/property.aggregate';
+import { CharacteristicCategory } from '../../domain/enums/characteristic-category.enum';
 import { ConservationState } from '../../domain/enums/conservation-state.enum';
 import { PropertyStatus } from '../../domain/enums/property-status.enum';
 import { PropertyType } from '../../domain/enums/property-type.enum';
+import { PropertyAddress } from '../../domain/value-objects/property-address.value-object';
+import { PropertyCharacteristicValue } from '../../domain/value-objects/property-characteristic.value-object';
+import { PropertyFeatures } from '../../domain/value-objects/property-features.value-object';
+import { PropertyId } from '../../domain/value-objects/property-id.value-object';
 import { PrismaPropertyMapper } from '../mappers/prisma-property.mapper';
 
-const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
-const CREATED_AT = new Date('2024-01-01T00:00:00.000Z');
-const UPDATED_AT = new Date('2024-02-01T00:00:00.000Z');
+// Mirrors the shape Prisma exposes for a Property row joined with features and tags.
+const DEFAULT_FEATURES = {
+  totalAreaM2: 120,
+  coveredAreaM2: 100,
+  rooms: 4,
+  bedrooms: 3,
+  bathrooms: 2,
+  garages: 1,
+  floor: 5,
+  conservationState: ConservationState.EXCELENTE,
+  ageYears: 10,
+};
 
-interface PrismaPropertyRecord {
-  id: string;
-  internalId: string | null;
-  status: PropertyStatus;
-  placeId: string;
-  formatted: string;
-  street: string | null;
-  streetNumber: string | null;
-  floor: string | null;
-  apartment: string | null;
-  neighborhood: string | null;
-  city: string | null;
-  province: string | null;
-  country: string | null;
-  postalCode: string | null;
-  latitude: unknown;
-  longitude: unknown;
-  createdAt: Date;
-  updatedAt: Date;
+const DEFAULT_TAGS = [
+  {
+    tag: {
+      id: 1,
+      name: 'Piscina',
+      slug: 'piscina',
+      category: CharacteristicCategory.AMENIDAD,
+    },
+  },
+];
+
+// Like `??` but only fires when the override is *undefined*, not when it's null.
+// This lets tests pass `null` explicitly to verify null-handling code paths.
+function ifDefined<T>(override: T | undefined, fallback: T): T {
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  return override === undefined ? fallback : override;
 }
 
-interface PrismaFeaturesRecord {
-  id: string;
-  propertyId: string;
-  propertyType: PropertyType;
-  conservationState: ConservationState | null;
-  totalAreaM2: number | null;
-  coveredAreaM2: number | null;
-  uncoveredAreaM2: number | null;
-  frontMeters: number | null;
-  backMeters: number | null;
-  rooms: number | null;
-  bedrooms: number | null;
-  bathrooms: number | null;
-  toilettes: number | null;
-  garages: number | null;
-  floorNumber: number | null;
-  unitIdentifier: string | null;
-  constructionYear: number | null;
-  orientation: string | null;
-  serviceTags: unknown;
-  amenityTags: unknown;
-  conditionTags: unknown;
-  extraFeatures: unknown;
-}
-
-function makePrismaProperty(overrides: Partial<PrismaPropertyRecord> = {}): PrismaPropertyRecord {
-  return {
-    id: VALID_UUID,
-    internalId: 'ABC1234',
-    status: PropertyStatus.DISPONIBLE,
-    placeId: 'place-123',
-    formatted: 'Av. Corrientes 1234, CABA, Argentina',
-    street: 'Av. Corrientes',
-    streetNumber: '1234',
-    floor: null,
-    apartment: null,
-    neighborhood: 'San Nicolás',
-    city: 'CABA',
-    province: 'Buenos Aires',
-    country: 'Argentina',
-    postalCode: 'C1043',
-    latitude: -34.6037,
-    longitude: -58.3816,
-    createdAt: CREATED_AT,
-    updatedAt: UPDATED_AT,
-    ...overrides,
+// eslint-disable-next-line complexity
+function makePrismaProperty(overrides: Record<string, unknown> = {}) {
+  const o = overrides as {
+    id?: string;
+    internalCode?: string;
+    status?: PropertyStatus;
+    propertyType?: PropertyType;
+    ownerProfileId?: string | null;
+    agentProfileId?: string | null;
+    addressPlaceId?: string | null;
+    addressFormatted?: string;
+    addressStreet?: string | null;
+    addressStreetNumber?: string | null;
+    addressNeighborhood?: string | null;
+    addressCity?: string;
+    addressState?: string | null;
+    addressCountry?: string;
+    addressPostalCode?: string | null;
+    addressLatitude?: unknown;
+    addressLongitude?: unknown;
+    createdAt?: Date;
+    updatedAt?: Date;
+    deletedAt?: Date | null;
+    features?: unknown;
+    tags?: Array<{
+      tag: { id: number; name: string; slug: string; category: CharacteristicCategory };
+    }>;
   };
-}
-
-function makePrismaFeatures(overrides: Partial<PrismaFeaturesRecord> = {}): PrismaFeaturesRecord {
   return {
-    id: 'features-uuid',
-    propertyId: VALID_UUID,
-    propertyType: PropertyType.DEPARTAMENTO,
-    conservationState: ConservationState.BUENO,
-    totalAreaM2: 100,
-    coveredAreaM2: 80,
-    uncoveredAreaM2: 20,
-    frontMeters: null,
-    backMeters: null,
-    rooms: 3,
-    bedrooms: 2,
-    bathrooms: 1,
-    toilettes: null,
-    garages: 1,
-    floorNumber: 5,
-    unitIdentifier: 'B',
-    constructionYear: 2010,
-    orientation: 'norte',
-    serviceTags: ['gas_natural'],
-    amenityTags: ['pileta'],
-    conditionTags: ['amueblado'],
-    extraFeatures: { has_garage: true },
-    ...overrides,
+    id: o.id ?? '550e8400-e29b-41d4-a716-446655440000',
+    internalCode: o.internalCode ?? 'PROP-001',
+    status: o.status ?? PropertyStatus.DISPONIBLE,
+    propertyType: o.propertyType ?? PropertyType.DEPARTAMENTO,
+    ownerProfileId: o.ownerProfileId ?? null,
+    agentProfileId: o.agentProfileId ?? null,
+    addressPlaceId: o.addressPlaceId ?? 'place-1',
+    addressFormatted: o.addressFormatted ?? 'Av. Corrientes 1234, CABA',
+    addressStreet: o.addressStreet ?? 'Av. Corrientes',
+    addressStreetNumber: o.addressStreetNumber ?? '1234',
+    addressNeighborhood: o.addressNeighborhood ?? 'San Nicolás',
+    addressCity: o.addressCity ?? 'CABA',
+    addressState: o.addressState ?? 'Buenos Aires',
+    addressCountry: o.addressCountry ?? 'Argentina',
+    addressPostalCode: o.addressPostalCode ?? 'C1043',
+    addressLatitude: ifDefined(o.addressLatitude, -34.6037),
+    addressLongitude: ifDefined(o.addressLongitude, -58.3816),
+    createdAt: o.createdAt ?? new Date('2024-01-01T00:00:00Z'),
+    updatedAt: o.updatedAt ?? new Date('2024-01-02T00:00:00Z'),
+    deletedAt: o.deletedAt ?? null,
+    features: ifDefined(o.features, DEFAULT_FEATURES),
+    tags: ifDefined(o.tags, DEFAULT_TAGS),
   };
 }
 
 describe('PrismaPropertyMapper', () => {
   describe('toDomain()', () => {
-    it('should map a Prisma property + features to a Property aggregate', () => {
-      const property = PrismaPropertyMapper.toDomain(
-        makePrismaProperty() as never,
-        makePrismaFeatures() as never,
-      );
+    it('should map a full prisma property into a Property aggregate', () => {
+      const prismaProperty = makePrismaProperty();
+
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
 
       expect(property).toBeInstanceOf(Property);
-      expect(property.id.toValue()).toBe(VALID_UUID);
+      expect(property.id.toValue()).toBe(prismaProperty.id);
+      expect(property.internalCode).toBe('PROP-001');
       expect(property.status).toBe(PropertyStatus.DISPONIBLE);
-      expect(property.address.placeId).toBe('place-123');
-      expect(property.address.latitude).toBe(-34.6037);
-      expect(property.features.propertyType).toBe(PropertyType.DEPARTAMENTO);
-      expect(property.features.conservationState).toBe(ConservationState.BUENO);
-      expect(property.internalId?.value).toBe('ABC1234');
-      expect(property.domainEvents).toHaveLength(0);
+      expect(property.propertyType).toBe(PropertyType.DEPARTAMENTO);
+      expect(property.ownerProfileId).toBeNull();
+      expect(property.agentProfileId).toBeNull();
+      expect(property.address).toBeInstanceOf(PropertyAddress);
+      expect(property.address.addressCity).toBe('CABA');
+      expect(property.address.addressCountry).toBe('Argentina');
+      expect(property.address.addressFormatted).toBe('Av. Corrientes 1234, CABA');
+      expect(property.address.addressLatitude).toBe(-34.6037);
+      expect(property.address.addressLongitude).toBe(-58.3816);
+      expect(property.features).toBeInstanceOf(PropertyFeatures);
+      expect(property.characteristics).toHaveLength(1);
+      expect(property.characteristics[0]!).toBeInstanceOf(PropertyCharacteristicValue);
+      expect(property.characteristics[0]!.id).toBe(1);
+      expect(property.characteristics[0]!.category).toBe(CharacteristicCategory.AMENIDAD);
+      expect(property.deletedAt).toBeNull();
     });
 
-    it('should return a Property with default features when no features record is provided', () => {
-      const property = PrismaPropertyMapper.toDomain(
-        makePrismaProperty({ internalId: null }) as never,
-        null,
-      );
+    it('should tolerate null addressLatitude/Longitude (Prisma Decimal | null)', () => {
+      const prismaProperty = makePrismaProperty({
+        addressLatitude: null,
+        addressLongitude: null,
+      });
 
-      expect(property.internalId).toBeNull();
-      // When no features record exists, we fall back to a minimal default
-      expect(property.features.propertyType).toBe(PropertyType.DEPARTAMENTO);
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
+
+      expect(property.address.addressLatitude).toBeNull();
+      expect(property.address.addressLongitude).toBeNull();
     });
 
-    it('should handle string-encoded Decimals for latitude/longitude', () => {
-      const property = PrismaPropertyMapper.toDomain(
-        makePrismaProperty({ latitude: '-34.6037', longitude: '-58.3816' }) as never,
-        makePrismaFeatures() as never,
-      );
-      expect(property.address.latitude).toBe(-34.6037);
-      expect(property.address.longitude).toBe(-58.3816);
+    it('should coerce string Decimals to numbers (PostgreSQL Decimal -> string)', () => {
+      const prismaProperty = makePrismaProperty({
+        addressLatitude: '-34.6037000',
+        addressLongitude: '-58.3816000',
+      });
+
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
+
+      expect(property.address.addressLatitude).toBe(-34.6037);
+      expect(property.address.addressLongitude).toBe(-58.3816);
     });
 
-    it('should handle Decimal objects with toNumber() for latitude/longitude', () => {
-      const fakeDecimal = {
-        toNumber: () => -34.6037,
-      };
-      const property = PrismaPropertyMapper.toDomain(
-        makePrismaProperty({ latitude: fakeDecimal, longitude: fakeDecimal }) as never,
-        makePrismaFeatures() as never,
-      );
-      expect(property.address.latitude).toBe(-34.6037);
-    });
-  });
+    it('should preserve the deletedAt timestamp', () => {
+      const deletedAt = new Date('2024-06-01T00:00:00Z');
+      const prismaProperty = makePrismaProperty({ deletedAt });
 
-  describe('toPrisma()', () => {
-    it('should serialize a Property into property + features Prisma input', () => {
-      const property = PrismaPropertyMapper.toDomain(
-        makePrismaProperty() as never,
-        makePrismaFeatures() as never,
-      );
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
 
-      const prismaInput = PrismaPropertyMapper.toPrisma(property);
-
-      expect(prismaInput.property.id).toBe(VALID_UUID);
-      expect(prismaInput.property.internalId).toBe('ABC1234');
-      expect(prismaInput.property.status).toBe(PropertyStatus.DISPONIBLE);
-      expect(prismaInput.property.placeId).toBe('place-123');
-      expect(prismaInput.property.latitude).toBe(-34.6037);
-      expect(prismaInput.features.propertyType).toBe(PropertyType.DEPARTAMENTO);
-      expect(prismaInput.features.serviceTags).toEqual(['gas_natural']);
-      expect(prismaInput.features.amenityTags).toEqual(['pileta']);
-      expect(prismaInput.features.extraFeatures).toEqual({ has_garage: true });
+      expect(property.deletedAt).toBe(deletedAt);
     });
 
-    it('should set internalId to null when not present', () => {
-      const property = PrismaPropertyMapper.toDomain(
-        makePrismaProperty({ internalId: null }) as never,
-        makePrismaFeatures() as never,
-      );
-      const prismaInput = PrismaPropertyMapper.toPrisma(property);
-      expect(prismaInput.property.internalId).toBeNull();
+    it('should build a Property with no features when missing', () => {
+      const prismaProperty = makePrismaProperty({ features: null });
+
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
+
+      expect(property.features).toBeNull();
+    });
+
+    it('should build a Property with no characteristics when the join is empty', () => {
+      const prismaProperty = makePrismaProperty({ tags: [] });
+
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
+
+      expect(property.characteristics).toEqual([]);
     });
   });
 
-  describe('round-trip', () => {
-    it('should preserve all fields across a toDomain → toPrisma → toDomain cycle', () => {
-      const initialProperty = makePrismaProperty();
-      const initialFeatures = makePrismaFeatures();
+  describe('toPersistence()', () => {
+    it('should map a Property aggregate to a flat persistence payload', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-002',
+        address: new PropertyAddress({
+          addressPlaceId: 'place-1',
+          addressFormatted: 'Av. Corrientes 1234, CABA',
+          addressStreet: 'Av. Corrientes',
+          addressStreetNumber: '1234',
+          addressNeighborhood: 'San Nicolás',
+          addressCity: 'CABA',
+          addressState: 'Buenos Aires',
+          addressCountry: 'Argentina',
+          addressPostalCode: 'C1043',
+          addressLatitude: -34.6037,
+          addressLongitude: -58.3816,
+        }),
+        propertyType: PropertyType.DEPARTAMENTO,
+        status: PropertyStatus.DISPONIBLE,
+        features: new PropertyFeatures({
+          totalAreaM2: 120,
+          coveredAreaM2: 100,
+          rooms: 4,
+          bedrooms: 3,
+          bathrooms: 2,
+          garages: 1,
+          floor: 5,
+          conservationState: ConservationState.EXCELENTE,
+          ageYears: 10,
+        }),
+        ownerProfileId: 'owner-1',
+        agentProfileId: 'agent-1',
+        characteristics: [
+          PropertyCharacteristicValue.fromPersistence(
+            1,
+            'Piscina',
+            'piscina',
+            CharacteristicCategory.AMENIDAD,
+          ),
+        ],
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        updatedAt: new Date('2024-01-02T00:00:00Z'),
+        deletedAt: null,
+      });
 
-      const domain = PrismaPropertyMapper.toDomain(
-        initialProperty as never,
-        initialFeatures as never,
-      );
-      const prisma = PrismaPropertyMapper.toPrisma(domain);
-      const roundTripped = PrismaPropertyMapper.toDomain(
-        prisma.property as never,
-        initialFeatures as never,
-      );
+      const data = PrismaPropertyMapper.toPersistence(property);
 
-      expect(roundTripped.id.toValue()).toBe(initialProperty.id);
-      expect(roundTripped.status).toBe(initialProperty.status);
-      expect(roundTripped.address.placeId).toBe(initialProperty.placeId);
-      expect(roundTripped.address.latitude).toBeCloseTo(-34.6037, 4);
-      expect(roundTripped.features.propertyType).toBe(initialFeatures.propertyType);
-      expect(roundTripped.features.bedrooms).toBe(initialFeatures.bedrooms);
+      expect(data.id).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(data.internalCode).toBe('PROP-002');
+      expect(data.status).toBe(PropertyStatus.DISPONIBLE);
+      expect(data.propertyType).toBe(PropertyType.DEPARTAMENTO);
+      expect(data.ownerProfileId).toBe('owner-1');
+      expect(data.agentProfileId).toBe('agent-1');
+      expect(data.addressCity).toBe('CABA');
+      expect(data.addressCountry).toBe('Argentina');
+      expect(data.addressFormatted).toBe('Av. Corrientes 1234, CABA');
+      expect(data.deletedAt).toBeNull();
+      expect(data.features).toMatchObject({
+        totalAreaM2: 120,
+        coveredAreaM2: 100,
+        conservationState: ConservationState.EXCELENTE,
+      });
+      expect(data.characteristics).toEqual([
+        { name: 'Piscina', slug: 'piscina', category: CharacteristicCategory.AMENIDAD },
+      ]);
+    });
+
+    it('should produce an empty characteristics array when no characteristics exist', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-003',
+        address: new PropertyAddress({
+          addressPlaceId: null,
+          addressFormatted: 'Calle 1',
+          addressStreet: null,
+          addressStreetNumber: null,
+          addressNeighborhood: null,
+          addressCity: 'CABA',
+          addressState: null,
+          addressCountry: 'Argentina',
+          addressPostalCode: null,
+          addressLatitude: null,
+          addressLongitude: null,
+        }),
+        propertyType: PropertyType.CASA,
+        status: PropertyStatus.DISPONIBLE,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: null,
+        characteristics: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+
+      const data = PrismaPropertyMapper.toPersistence(property);
+
+      expect(data.characteristics).toEqual([]);
+    });
+
+    it('should produce null features when property has no features', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-004',
+        address: new PropertyAddress({
+          addressPlaceId: null,
+          addressFormatted: 'Calle 1',
+          addressStreet: null,
+          addressStreetNumber: null,
+          addressNeighborhood: null,
+          addressCity: 'CABA',
+          addressState: null,
+          addressCountry: 'Argentina',
+          addressPostalCode: null,
+          addressLatitude: null,
+          addressLongitude: null,
+        }),
+        propertyType: PropertyType.CASA,
+        status: PropertyStatus.DISPONIBLE,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: null,
+        characteristics: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+
+      const data = PrismaPropertyMapper.toPersistence(property);
+
+      expect(data.features).toBeNull();
     });
   });
 });

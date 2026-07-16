@@ -3,8 +3,8 @@ import { Module } from '@nestjs/common';
 import { DomainEventModule } from '@shared/infrastructure';
 
 import { IdentityModule } from '../identity/identity.module';
-import { CreateBusinessUserHandler } from './application/commands/create-business-user.handler';
-import { CreateProfileOnUserRegisteredHandler } from './application/handlers/create-profile-on-user-registered.handler';
+import { CreateBusinessUserUseCase } from './application/commands/create-business-user.use-case';
+import { CreateProfileOnUserRegisteredUseCase } from './application/handlers/create-profile-on-user-registered.use-case';
 import { IProfileRepositoryToken } from './domain';
 import { PrismaProfileRepository } from './infrastructure/repositories/prisma-profile.repository';
 import { ProfilesController } from './presentation/controllers/profiles.controller';
@@ -16,8 +16,8 @@ import { ProfilesController } from './presentation/controllers/profiles.controll
       provide: IProfileRepositoryToken,
       useClass: PrismaProfileRepository,
     },
-    CreateProfileOnUserRegisteredHandler,
-    CreateBusinessUserHandler,
+    CreateProfileOnUserRegisteredUseCase,
+    CreateBusinessUserUseCase,
   ],
   controllers: [ProfilesController],
   exports: [IProfileRepositoryToken],

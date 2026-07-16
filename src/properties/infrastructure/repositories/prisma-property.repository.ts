@@ -1,170 +1,100 @@
 import { Injectable } from '@nestjs/common';
 
-import { DomainException, ErrorCode } from '@shared/domain';
 import { PrismaService } from '@shared/infrastructure';
 
 import { Property } from '../../domain/entities/property.aggregate';
-import type { IPropertyRepository } from '../../domain/ports/property-repository.interface';
-import type { PropertyId } from '../../domain/value-objects/property-id.value-object';
-import type { PropertyInternalId } from '../../domain/value-objects/property-internal-id.value-object';
+import type { IPropertyRepository } from '../../domain/repositories/property-repository.interface';
+import { PropertyId } from '../../domain/value-objects/property-id.value-object';
 import { PrismaPropertyMapper } from '../mappers/prisma-property.mapper';
+
+const PROPERTY_WITH_RELATIONS_INCLUDE = {
+  features: true,
+  tags: { include: { tag: true } },
+} as const;
 
 @Injectable()
 export class PrismaPropertyRepository implements IPropertyRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: PropertyId): Promise<Property | null> {
-    const prismaProperty = await this.prisma.property.findUnique({
-      where: { id: id.toValue() },
-      include: { features: true },
+    const row = await this.prisma.property.findFirst({
+      where: { id: id.toValue(), deletedAt: null },
+      include: PROPERTY_WITH_RELATIONS_INCLUDE,
     });
-    if (!prismaProperty) {
-      return null;
-    }
-    return PrismaPropertyMapper.toDomain(prismaProperty, prismaProperty.features);
+    return row ? PrismaPropertyMapper.toDomain(row) : null;
   }
 
-  async findByInternalId(internalId: PropertyInternalId): Promise<Property | null> {
-    const prismaProperty = await this.prisma.property.findUnique({
-      where: { internalId: internalId.value },
-      include: { features: true },
+  async findByInternalCode(internalCode: string): Promise<Property | null> {
+    const row = await this.prisma.property.findFirst({
+      where: { internalCode, deletedAt: null },
+      include: PROPERTY_WITH_RELATIONS_INCLUDE,
     });
-    if (!prismaProperty) {
-      return null;
-    }
-    return PrismaPropertyMapper.toDomain(prismaProperty, prismaProperty.features);
+    return row ? PrismaPropertyMapper.toDomain(row) : null;
   }
 
-  async save(property: Property): Promise<Property> {
-    const { property: propertyData, features: featuresData } =
-      PrismaPropertyMapper.toPrisma(property);
+  async save(property: Property): Promise<void> {
+    const data = PrismaPropertyMapper.toPersistence(property);
 
-    try {
-      await this.prisma.property.upsert({
-        where: { id: propertyData.id },
-        create: {
-          id: propertyData.id,
-          internalId: propertyData.internalId,
-          status: propertyData.status,
-          placeId: propertyData.placeId,
-          formatted: propertyData.formatted,
-          street: propertyData.street,
-          streetNumber: propertyData.streetNumber,
-          floor: propertyData.floor,
-          apartment: propertyData.apartment,
-          neighborhood: propertyData.neighborhood,
-          city: propertyData.city,
-          province: propertyData.province,
-          country: propertyData.country,
-          postalCode: propertyData.postalCode,
-          latitude: propertyData.latitude,
-          longitude: propertyData.longitude,
-          createdAt: propertyData.createdAt,
-          updatedAt: propertyData.updatedAt,
-          features: {
-            create: {
-              propertyType: featuresData.propertyType,
-              conservationState: featuresData.conservationState,
-              totalAreaM2: featuresData.totalAreaM2,
-              coveredAreaM2: featuresData.coveredAreaM2,
-              uncoveredAreaM2: featuresData.uncoveredAreaM2,
-              frontMeters: featuresData.frontMeters,
-              backMeters: featuresData.backMeters,
-              rooms: featuresData.rooms,
-              bedrooms: featuresData.bedrooms,
-              bathrooms: featuresData.bathrooms,
-              toilettes: featuresData.toilettes,
-              garages: featuresData.garages,
-              floorNumber: featuresData.floorNumber,
-              unitIdentifier: featuresData.unitIdentifier,
-              constructionYear: featuresData.constructionYear,
-              orientation: featuresData.orientation,
-              serviceTags: featuresData.serviceTags,
-              amenityTags: featuresData.amenityTags,
-              conditionTags: featuresData.conditionTags,
-              extraFeatures: featuresData.extraFeatures,
-            },
-          },
-        },
-        update: {
-          internalId: propertyData.internalId,
-          status: propertyData.status,
-          placeId: propertyData.placeId,
-          formatted: propertyData.formatted,
-          street: propertyData.street,
-          streetNumber: propertyData.streetNumber,
-          floor: propertyData.floor,
-          apartment: propertyData.apartment,
-          neighborhood: propertyData.neighborhood,
-          city: propertyData.city,
-          province: propertyData.province,
-          country: propertyData.country,
-          postalCode: propertyData.postalCode,
-          latitude: propertyData.latitude,
-          longitude: propertyData.longitude,
-          updatedAt: propertyData.updatedAt,
-          features: {
-            upsert: {
-              create: {
-                propertyType: featuresData.propertyType,
-                conservationState: featuresData.conservationState,
-                totalAreaM2: featuresData.totalAreaM2,
-                coveredAreaM2: featuresData.coveredAreaM2,
-                uncoveredAreaM2: featuresData.uncoveredAreaM2,
-                frontMeters: featuresData.frontMeters,
-                backMeters: featuresData.backMeters,
-                rooms: featuresData.rooms,
-                bedrooms: featuresData.bedrooms,
-                bathrooms: featuresData.bathrooms,
-                toilettes: featuresData.toilettes,
-                garages: featuresData.garages,
-                floorNumber: featuresData.floorNumber,
-                unitIdentifier: featuresData.unitIdentifier,
-                constructionYear: featuresData.constructionYear,
-                orientation: featuresData.orientation,
-                serviceTags: featuresData.serviceTags,
-                amenityTags: featuresData.amenityTags,
-                conditionTags: featuresData.conditionTags,
-                extraFeatures: featuresData.extraFeatures,
-              },
-              update: {
-                propertyType: featuresData.propertyType,
-                conservationState: featuresData.conservationState,
-                totalAreaM2: featuresData.totalAreaM2,
-                coveredAreaM2: featuresData.coveredAreaM2,
-                uncoveredAreaM2: featuresData.uncoveredAreaM2,
-                frontMeters: featuresData.frontMeters,
-                backMeters: featuresData.backMeters,
-                rooms: featuresData.rooms,
-                bedrooms: featuresData.bedrooms,
-                bathrooms: featuresData.bathrooms,
-                toilettes: featuresData.toilettes,
-                garages: featuresData.garages,
-                floorNumber: featuresData.floorNumber,
-                unitIdentifier: featuresData.unitIdentifier,
-                constructionYear: featuresData.constructionYear,
-                orientation: featuresData.orientation,
-                serviceTags: featuresData.serviceTags,
-                amenityTags: featuresData.amenityTags,
-                conditionTags: featuresData.conditionTags,
-                extraFeatures: featuresData.extraFeatures,
-              },
-            },
-          },
-        },
+    await this.prisma.$transaction(async (tx) => {
+      const base = {
+        internalCode: data.internalCode ?? null,
+        status: data.status,
+        propertyType: data.propertyType,
+        ownerProfileId: data.ownerProfileId,
+        agentProfileId: data.agentProfileId,
+        addressPlaceId: data.addressPlaceId,
+        addressFormatted: data.addressFormatted,
+        addressStreet: data.addressStreet,
+        addressStreetNumber: data.addressStreetNumber,
+        addressNeighborhood: data.addressNeighborhood,
+        addressCity: data.addressCity,
+        addressState: data.addressState,
+        addressCountry: data.addressCountry,
+        addressPostalCode: data.addressPostalCode,
+        addressLatitude: data.addressLatitude,
+        addressLongitude: data.addressLongitude,
+      };
+
+      await tx.property.upsert({
+        where: { id: data.id },
+        create: { id: data.id, ...base },
+        update: { ...base, deletedAt: data.deletedAt },
       });
-    } catch (error) {
-      const { message } = error as Error;
-      if (message.includes('Unique constraint') && message.includes('internal_id')) {
-        throw new DomainException(
-          'Ya existe una propiedad con ese internalId',
-          ErrorCode.DUPLICATE_INTERNAL_ID,
-        );
-      }
-      throw error;
-    }
 
-    property.pullDomainEvents();
-    return property;
+      if (data.features) {
+        await tx.propertyFeatures.upsert({
+          where: { propertyId: data.id },
+          create: { propertyId: data.id, ...data.features },
+          update: data.features,
+        });
+      }
+
+      // Upsert each characteristic by slug+category, collect resolved numeric ids
+      const resolvedIds: number[] = [];
+      for (const ch of data.characteristics) {
+        const tag = await tx.propertyTag.upsert({
+          where: { slug_category: { slug: ch.slug, category: ch.category as never } },
+          create: { name: ch.name, slug: ch.slug, category: ch.category as never },
+          update: {},
+          select: { id: true },
+        });
+        resolvedIds.push(tag.id);
+      }
+
+      // Delete existing relations for this property
+      await tx.propertyFeatureTag.deleteMany({
+        where: { propertyId: data.id },
+      });
+
+      // Create new relations with the resolved numeric ids
+      if (resolvedIds.length > 0) {
+        await tx.propertyFeatureTag.createMany({
+          data: resolvedIds.map((tagId) => ({ propertyId: data.id, tagId })),
+        });
+      }
+
+      // Sync resolved numeric ids back into the aggregate's VOs
+      property.syncCharacteristicIds(resolvedIds);
+    });
   }
 }

@@ -4,7 +4,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { UserRole } from '@shared/domain';
 
 import { type IProfileRepository, IProfileRepositoryToken } from '../../domain';
-import { createProfileForRole } from './role-to-profile.factory';
+import { createProfileForRole } from '../factories/role-to-profile.factory';
 
 interface UserRegisteredPayload {
   userId: string;
@@ -12,8 +12,8 @@ interface UserRegisteredPayload {
 }
 
 @Injectable()
-export class CreateProfileOnUserRegisteredHandler {
-  private readonly logger = new Logger(CreateProfileOnUserRegisteredHandler.name);
+export class CreateProfileOnUserRegisteredUseCase {
+  private readonly logger = new Logger(CreateProfileOnUserRegisteredUseCase.name);
 
   constructor(
     @Inject(IProfileRepositoryToken) private readonly profileRepository: IProfileRepository,

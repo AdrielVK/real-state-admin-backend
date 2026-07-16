@@ -1,188 +1,118 @@
 import { DomainException, ErrorCode, ValueObject, type ValueObjectProps } from '@shared/domain';
 
 import type { ConservationState } from '../enums/conservation-state.enum';
-import type { PropertyType } from '../enums/property-type.enum';
 
 export interface PropertyFeaturesProps extends ValueObjectProps {
-  propertyType: PropertyType;
-  conservationState: ConservationState | null;
-  totalAreaM2: number | null;
-  coveredAreaM2: number | null;
-  uncoveredAreaM2: number | null;
-  frontMeters: number | null;
-  backMeters: number | null;
+  totalAreaM2: number;
+  coveredAreaM2: number;
   rooms: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
-  toilettes: number | null;
   garages: number | null;
-  floorNumber: number | null;
-  unitIdentifier: string | null;
-  constructionYear: number | null;
-  orientation: string | null;
-  serviceTags: readonly string[];
-  amenityTags: readonly string[];
-  conditionTags: readonly string[];
-  extraFeatures: Readonly<Record<string, unknown>>;
+  floor: number | null;
+  conservationState: ConservationState | null;
+  ageYears: number | null;
 }
 
+/** Input shape accepted by PropertyFeatures.fromCreateDto. Mirrors CreatePropertyFeaturesDto. */
 export interface CreatePropertyFeaturesInput {
-  propertyType: PropertyType;
-  conservationState?: ConservationState | null;
-  totalAreaM2?: number | null;
-  coveredAreaM2?: number | null;
-  uncoveredAreaM2?: number | null;
-  frontMeters?: number | null;
-  backMeters?: number | null;
+  totalAreaM2: number;
+  coveredAreaM2: number;
   rooms?: number | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
-  toilettes?: number | null;
   garages?: number | null;
-  floorNumber?: number | null;
-  unitIdentifier?: string | null;
-  constructionYear?: number | null;
-  orientation?: string | null;
-  serviceTags?: readonly string[];
-  amenityTags?: readonly string[];
-  conditionTags?: readonly string[];
-  extraFeatures?: Readonly<Record<string, unknown>>;
+  floor?: number | null;
+  conservationState: ConservationState;
+  ageYears?: number | null;
+}
+
+function ensurePositive(field: string, value: number | null): void {
+  if (value === null || value === undefined) return;
+  if (value <= 0) {
+    throw new DomainException(`${field} debe ser un número positivo`, ErrorCode.VALIDATION_ERROR);
+  }
+}
+
+function ensureNonNegative(field: string, value: number | null): void {
+  if (value === null || value === undefined) return;
+  if (value < 0) {
+    throw new DomainException(`${field} no puede ser negativo`, ErrorCode.VALIDATION_ERROR);
+  }
 }
 
 export class PropertyFeatures extends ValueObject<PropertyFeaturesProps> {
-  private constructor(props: PropertyFeaturesProps) {
-    super({ ...props });
-  }
-
-  static create(input: CreatePropertyFeaturesInput): PropertyFeatures {
-    if (input.propertyType === undefined || input.propertyType === null) {
-      throw new DomainException('El tipo de propiedad es obligatorio', ErrorCode.VALIDATION_ERROR);
+  constructor(props: PropertyFeaturesProps) {
+    ensurePositive('totalAreaM2', props.totalAreaM2);
+    ensurePositive('coveredAreaM2', props.coveredAreaM2);
+    ensureNonNegative('rooms', props.rooms);
+    ensureNonNegative('bedrooms', props.bedrooms);
+    ensureNonNegative('bathrooms', props.bathrooms);
+    ensureNonNegative('garages', props.garages);
+    if (props.floor !== null && props.floor !== undefined && props.floor < 0) {
+      throw new DomainException('floor no puede ser negativo', ErrorCode.VALIDATION_ERROR);
     }
-    return new PropertyFeatures({
-      propertyType: input.propertyType,
-      conservationState: PropertyFeatures.toConservation(input.conservationState),
-      totalAreaM2: PropertyFeatures.toNullableNumber(input.totalAreaM2),
-      coveredAreaM2: PropertyFeatures.toNullableNumber(input.coveredAreaM2),
-      uncoveredAreaM2: PropertyFeatures.toNullableNumber(input.uncoveredAreaM2),
-      frontMeters: PropertyFeatures.toNullableNumber(input.frontMeters),
-      backMeters: PropertyFeatures.toNullableNumber(input.backMeters),
-      rooms: PropertyFeatures.toNullableNumber(input.rooms),
-      bedrooms: PropertyFeatures.toNullableNumber(input.bedrooms),
-      bathrooms: PropertyFeatures.toNullableNumber(input.bathrooms),
-      toilettes: PropertyFeatures.toNullableNumber(input.toilettes),
-      garages: PropertyFeatures.toNullableNumber(input.garages),
-      floorNumber: PropertyFeatures.toNullableNumber(input.floorNumber),
-      unitIdentifier: PropertyFeatures.toNullableString(input.unitIdentifier),
-      constructionYear: PropertyFeatures.toNullableNumber(input.constructionYear),
-      orientation: PropertyFeatures.toNullableString(input.orientation),
-      serviceTags: PropertyFeatures.toFrozenStringArray(input.serviceTags),
-      amenityTags: PropertyFeatures.toFrozenStringArray(input.amenityTags),
-      conditionTags: PropertyFeatures.toFrozenStringArray(input.conditionTags),
-      extraFeatures: PropertyFeatures.toFrozenRecord(input.extraFeatures),
+    if (props.ageYears !== null && props.ageYears !== undefined && props.ageYears < 0) {
+      throw new DomainException('ageYears no puede ser negativo', ErrorCode.VALIDATION_ERROR);
+    }
+    if (!props.conservationState) {
+      throw new DomainException(
+        'El estado de conservación es obligatorio',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+    super({
+      totalAreaM2: props.totalAreaM2,
+      coveredAreaM2: props.coveredAreaM2,
+      rooms: props.rooms ?? null,
+      bedrooms: props.bedrooms ?? null,
+      bathrooms: props.bathrooms ?? null,
+      garages: props.garages ?? null,
+      floor: props.floor ?? null,
+      conservationState: props.conservationState,
+      ageYears: props.ageYears ?? null,
     });
   }
 
-  private static toConservation(
-    value: ConservationState | null | undefined,
-  ): ConservationState | null {
-    return value ?? null;
-  }
-
-  private static toNullableNumber(value: number | null | undefined): number | null {
-    return value ?? null;
-  }
-
-  private static toNullableString(value: string | null | undefined): string | null {
-    return value ?? null;
-  }
-
-  private static toFrozenStringArray(value: readonly string[] | undefined): readonly string[] {
-    return Object.freeze([...(value ?? [])]);
-  }
-
-  private static toFrozenRecord(
-    value: Readonly<Record<string, unknown>> | undefined,
-  ): Readonly<Record<string, unknown>> {
-    return Object.freeze({ ...value });
-  }
-
-  get propertyType(): PropertyType {
-    return this.props.propertyType;
-  }
-
-  get conservationState(): ConservationState | null {
-    return this.props.conservationState;
-  }
-
-  get totalAreaM2(): number | null {
+  get totalAreaM2(): number {
     return this.props.totalAreaM2;
   }
-
-  get coveredAreaM2(): number | null {
+  get coveredAreaM2(): number {
     return this.props.coveredAreaM2;
   }
-
-  get uncoveredAreaM2(): number | null {
-    return this.props.uncoveredAreaM2;
-  }
-
-  get frontMeters(): number | null {
-    return this.props.frontMeters;
-  }
-
-  get backMeters(): number | null {
-    return this.props.backMeters;
-  }
-
   get rooms(): number | null {
     return this.props.rooms;
   }
-
   get bedrooms(): number | null {
     return this.props.bedrooms;
   }
-
   get bathrooms(): number | null {
     return this.props.bathrooms;
   }
-
-  get toilettes(): number | null {
-    return this.props.toilettes;
-  }
-
   get garages(): number | null {
     return this.props.garages;
   }
-
-  get floorNumber(): number | null {
-    return this.props.floorNumber;
+  get floor(): number | null {
+    return this.props.floor;
+  }
+  get conservationState(): ConservationState | null {
+    return this.props.conservationState;
+  }
+  get ageYears(): number | null {
+    return this.props.ageYears;
   }
 
-  get unitIdentifier(): string | null {
-    return this.props.unitIdentifier;
-  }
-
-  get constructionYear(): number | null {
-    return this.props.constructionYear;
-  }
-
-  get orientation(): string | null {
-    return this.props.orientation;
-  }
-
-  get serviceTags(): readonly string[] {
-    return this.props.serviceTags;
-  }
-
-  get amenityTags(): readonly string[] {
-    return this.props.amenityTags;
-  }
-
-  get conditionTags(): readonly string[] {
-    return this.props.conditionTags;
-  }
-
-  get extraFeatures(): Readonly<Record<string, unknown>> {
-    return this.props.extraFeatures;
+  static fromCreateDto(dto: CreatePropertyFeaturesInput): PropertyFeatures {
+    return new PropertyFeatures({
+      totalAreaM2: dto.totalAreaM2,
+      coveredAreaM2: dto.coveredAreaM2,
+      rooms: dto.rooms ?? null,
+      bedrooms: dto.bedrooms ?? null,
+      bathrooms: dto.bathrooms ?? null,
+      garages: dto.garages ?? null,
+      floor: dto.floor ?? null,
+      conservationState: dto.conservationState,
+      ageYears: dto.ageYears ?? null,
+    });
   }
 }

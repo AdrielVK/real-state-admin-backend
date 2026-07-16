@@ -1,82 +1,80 @@
-import { DomainException, ErrorCode } from '@shared/domain';
-
 import { ConservationState } from '../enums/conservation-state.enum';
-import { PropertyType } from '../enums/property-type.enum';
 import { PropertyFeatures } from '../value-objects/property-features.value-object';
 
+const BASE_FEATURES = {
+  totalAreaM2: 120,
+  coveredAreaM2: 100,
+  rooms: 4,
+  bedrooms: 3,
+  bathrooms: 2,
+  garages: 1,
+  floor: 5,
+  conservationState: ConservationState.EXCELENTE,
+  ageYears: 10,
+};
+
 describe('PropertyFeatures', () => {
-  it('should create features with only the required propertyType', () => {
-    const features = PropertyFeatures.create({ propertyType: PropertyType.DEPARTAMENTO });
-    expect(features.propertyType).toBe(PropertyType.DEPARTAMENTO);
-    expect(features.conservationState).toBeNull();
-    expect(features.totalAreaM2).toBeNull();
-    expect(features.bedrooms).toBeNull();
-    expect(features.bathrooms).toBeNull();
-    expect(features.serviceTags).toEqual([]);
-    expect(features.amenityTags).toEqual([]);
-    expect(features.conditionTags).toEqual([]);
-    expect(features.extraFeatures).toEqual({});
+  it('should build a valid feature set with all fields', () => {
+    const features = new PropertyFeatures(BASE_FEATURES);
+
+    expect(features.totalAreaM2).toBe(120);
+    expect(features.coveredAreaM2).toBe(100);
+    expect(features.rooms).toBe(4);
+    expect(features.bedrooms).toBe(3);
+    expect(features.bathrooms).toBe(2);
+    expect(features.garages).toBe(1);
+    expect(features.floor).toBe(5);
+    expect(features.conservationState).toBe(ConservationState.EXCELENTE);
+    expect(features.ageYears).toBe(10);
   });
 
-  it('should create features with all optional fields populated', () => {
-    const features = PropertyFeatures.create({
-      propertyType: PropertyType.CASA,
-      conservationState: ConservationState.BUENO,
-      totalAreaM2: 120.5,
-      coveredAreaM2: 100,
-      uncoveredAreaM2: 20.5,
-      frontMeters: 10,
-      backMeters: 10,
-      rooms: 4,
-      bedrooms: 3,
-      bathrooms: 2,
-      toilettes: 1,
-      garages: 1,
-      floorNumber: 0,
-      unitIdentifier: 'A',
-      constructionYear: 2010,
-      orientation: 'norte',
-      serviceTags: ['gas_natural', 'agua_corriente'],
-      amenityTags: ['pileta', 'parrilla'],
-      conditionTags: ['recien_pintado'],
-      extraFeatures: { has_pool: true },
+  it('should treat optional numeric fields as nullable', () => {
+    const features = new PropertyFeatures({
+      ...BASE_FEATURES,
+      floor: null,
+      ageYears: null,
     });
-    expect(features.propertyType).toBe(PropertyType.CASA);
-    expect(features.conservationState).toBe(ConservationState.BUENO);
-    expect(features.totalAreaM2).toBe(120.5);
-    expect(features.serviceTags).toEqual(['gas_natural', 'agua_corriente']);
-    expect(features.amenityTags).toContain('pileta');
-    expect(features.extraFeatures).toEqual({ has_pool: true });
+    expect(features.floor).toBeNull();
+    expect(features.ageYears).toBeNull();
   });
 
-  it('should throw DomainException when propertyType is undefined', () => {
-    expect(() => {
-      PropertyFeatures.create({ propertyType: undefined as never });
-    }).toThrow(DomainException);
-    try {
-      PropertyFeatures.create({ propertyType: undefined as never });
-    } catch (error) {
-      expect((error as DomainException).code).toBe(ErrorCode.VALIDATION_ERROR);
-    }
+  it('should reject non-positive totalAreaM2', () => {
+    expect(() => new PropertyFeatures({ ...BASE_FEATURES, totalAreaM2: 0 })).toThrow();
+    expect(() => new PropertyFeatures({ ...BASE_FEATURES, totalAreaM2: -10 })).toThrow();
   });
 
-  it('should expose frozen tag arrays (immutable)', () => {
-    const features = PropertyFeatures.create({
-      propertyType: PropertyType.DEPARTAMENTO,
-      serviceTags: ['gas_natural'],
-    });
-    expect(() => {
-      (features.serviceTags as string[]).push('agua_corriente');
-    }).toThrow();
+  it('should reject negative counts (rooms, bedrooms, bathrooms, garages)', () => {
+    expect(() => new PropertyFeatures({ ...BASE_FEATURES, rooms: -1 })).toThrow();
+    expect(() => new PropertyFeatures({ ...BASE_FEATURES, bedrooms: -1 })).toThrow();
+    expect(() => new PropertyFeatures({ ...BASE_FEATURES, bathrooms: -1 })).toThrow();
+    expect(() => new PropertyFeatures({ ...BASE_FEATURES, garages: -1 })).toThrow();
   });
 
-  it('should expose frozen extraFeatures object (immutable)', () => {
-    const features = PropertyFeatures.create({
-      propertyType: PropertyType.DEPARTAMENTO,
-      extraFeatures: { has_pool: true },
-    });
-    expect(() => {
-      (features.extraFeatures as Record<string, unknown>).has_gym = true;
-    }).toThrow();
+  it('should require a conservationState', () => {
+    expect(
+      () =>
+        new PropertyFeatures({
+          ...BASE_FEATURES,
+          // @ts-expect-error verifying runtime guard
+          conservationState: undefined,
+        }),
+    ).toThrow();
+  });
+
+  it('should NOT expose a propertyType field', () => {
+    const features = new PropertyFeatures(BASE_FEATURES);
+    expect((features as unknown as { propertyType?: unknown }).propertyType).toBeUndefined();
+  });
+
+  it('should be equal to another PropertyFeatures with the same values', () => {
+    const a = new PropertyFeatures(BASE_FEATURES);
+    const b = new PropertyFeatures(BASE_FEATURES);
+    expect(a.equals(b)).toBe(true);
+  });
+
+  it('should NOT be equal when ageYears differs', () => {
+    const a = new PropertyFeatures(BASE_FEATURES);
+    const b = new PropertyFeatures({ ...BASE_FEATURES, ageYears: 1 });
+    expect(a.equals(b)).toBe(false);
   });
 });

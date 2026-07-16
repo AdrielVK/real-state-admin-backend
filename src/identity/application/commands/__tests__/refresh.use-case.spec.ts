@@ -12,7 +12,7 @@ import {
   User,
 } from '@identity/domain';
 
-import { RefreshCommand, RefreshHandler } from '../refresh.handler';
+import { RefreshCommand, RefreshUseCase } from '../refresh.use-case';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
 const REFRESH_TOKEN_ID = '11111111-2222-3333-4444-555555555555';
@@ -75,8 +75,8 @@ function makeMockUserRepository(): jest.Mocked<IUserRepository> {
   } as jest.Mocked<IUserRepository>;
 }
 
-describe('RefreshHandler', () => {
-  let handler: RefreshHandler;
+describe('RefreshUseCase', () => {
+  let useCase: RefreshUseCase;
   let mockRefreshTokenRepository: jest.Mocked<IRefreshTokenRepository>;
   let mockTokenService: jest.Mocked<ITokenService>;
   let mockUserRepository: jest.Mocked<IUserRepository>;
@@ -85,7 +85,7 @@ describe('RefreshHandler', () => {
     mockRefreshTokenRepository = makeMockRefreshTokenRepository();
     mockTokenService = makeMockTokenService();
     mockUserRepository = makeMockUserRepository();
-    handler = new RefreshHandler(mockRefreshTokenRepository, mockTokenService, mockUserRepository);
+    useCase = new RefreshUseCase(mockRefreshTokenRepository, mockTokenService, mockUserRepository);
   });
 
   describe('execute() — success path', () => {
@@ -96,7 +96,7 @@ describe('RefreshHandler', () => {
       mockTokenService.generateAccessToken.mockResolvedValue('new-access.jwt');
       mockTokenService.generateRefreshToken.mockReturnValue('new-raw-refresh');
 
-      const result = await handler.execute(makeCommand());
+      const result = await useCase.execute(makeCommand());
 
       expect(result.accessToken).toBe('new-access.jwt');
       expect(result.refreshToken).toBe('new-raw-refresh');
@@ -113,7 +113,7 @@ describe('RefreshHandler', () => {
       mockTokenService.generateAccessToken.mockResolvedValue('new-access.jwt');
       mockTokenService.generateRefreshToken.mockReturnValue('new-raw-refresh');
 
-      await handler.execute(makeCommand({ refreshToken: 'my-raw-token' }));
+      await useCase.execute(makeCommand({ refreshToken: 'my-raw-token' }));
 
       const expectedHash = createHash('sha256').update('my-raw-token').digest('hex');
       expect(mockRefreshTokenRepository.findByToken).toHaveBeenCalledWith(expectedHash);
@@ -128,7 +128,7 @@ describe('RefreshHandler', () => {
 
       expect(existing.isRevoked()).toBe(false);
 
-      await handler.execute(makeCommand());
+      await useCase.execute(makeCommand());
 
       expect(existing.isRevoked()).toBe(true);
       expect(mockRefreshTokenRepository.revoke).toHaveBeenCalledWith(existing);
@@ -142,7 +142,7 @@ describe('RefreshHandler', () => {
       mockTokenService.generateRefreshToken.mockReturnValue('new-raw-refresh');
 
       const before = Date.now();
-      await handler.execute(makeCommand());
+      await useCase.execute(makeCommand());
       const after = Date.now();
 
       expect(mockRefreshTokenRepository.save).toHaveBeenCalledTimes(1);
@@ -165,7 +165,7 @@ describe('RefreshHandler', () => {
       mockTokenService.generateAccessToken.mockResolvedValue('new-access.jwt');
       mockTokenService.generateRefreshToken.mockReturnValue('new-raw-refresh');
 
-      await handler.execute(makeCommand());
+      await useCase.execute(makeCommand());
 
       expect(mockUserRepository.findById).toHaveBeenCalledTimes(1);
       expect(mockTokenService.generateAccessToken).toHaveBeenCalledWith({
@@ -182,7 +182,7 @@ describe('RefreshHandler', () => {
 
       let caught: unknown;
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch (error) {
         caught = error;
       }
@@ -196,8 +196,8 @@ describe('RefreshHandler', () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(makeActiveToken({ revoked: true }));
 
       try {
-        await handler.execute(makeCommand());
-        throw new Error('handler should have thrown');
+        await useCase.execute(makeCommand());
+        throw new Error('useCase should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AppException);
         expect((error as AppException).code).toBe(ErrorCode.UNAUTHORIZED);
@@ -208,8 +208,8 @@ describe('RefreshHandler', () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(makeActiveToken({ expired: true }));
 
       try {
-        await handler.execute(makeCommand());
-        throw new Error('handler should have thrown');
+        await useCase.execute(makeCommand());
+        throw new Error('useCase should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AppException);
         expect((error as AppException).code).toBe(ErrorCode.UNAUTHORIZED);
@@ -221,8 +221,8 @@ describe('RefreshHandler', () => {
       mockUserRepository.findById.mockResolvedValue(null);
 
       try {
-        await handler.execute(makeCommand());
-        throw new Error('handler should have thrown');
+        await useCase.execute(makeCommand());
+        throw new Error('useCase should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AppException);
         expect((error as AppException).code).toBe(ErrorCode.UNAUTHORIZED);
@@ -233,7 +233,7 @@ describe('RefreshHandler', () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(null);
 
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch {
         // expected
       }

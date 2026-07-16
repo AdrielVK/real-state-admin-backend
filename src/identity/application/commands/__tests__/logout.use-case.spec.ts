@@ -4,7 +4,7 @@ import { ErrorCode } from '@shared/domain';
 import { AppException } from '@shared/presentation';
 import { type IRefreshTokenRepository, RefreshToken, RefreshTokenId } from '@identity/domain';
 
-import { LogoutCommand, LogoutHandler } from '../logout.handler';
+import { LogoutCommand, LogoutUseCase } from '../logout.use-case';
 
 const REFRESH_TOKEN_ID = '11111111-2222-3333-4444-555555555555';
 const RAW_TOKEN = 'raw-refresh-token';
@@ -34,20 +34,20 @@ function makeMockRefreshTokenRepository(): jest.Mocked<IRefreshTokenRepository> 
   } as jest.Mocked<IRefreshTokenRepository>;
 }
 
-describe('LogoutHandler', () => {
-  let handler: LogoutHandler;
+describe('LogoutUseCase', () => {
+  let useCase: LogoutUseCase;
   let mockRefreshTokenRepository: jest.Mocked<IRefreshTokenRepository>;
 
   beforeEach(() => {
     mockRefreshTokenRepository = makeMockRefreshTokenRepository();
-    handler = new LogoutHandler(mockRefreshTokenRepository);
+    useCase = new LogoutUseCase(mockRefreshTokenRepository);
   });
 
   describe('execute() — success path', () => {
     it('should look up the refresh token by SHA-256 hash', async () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(makeActiveToken());
 
-      await handler.execute(makeCommand({ refreshToken: 'my-raw-token' }));
+      await useCase.execute(makeCommand({ refreshToken: 'my-raw-token' }));
 
       const expectedHash = createHash('sha256').update('my-raw-token').digest('hex');
       expect(mockRefreshTokenRepository.findByToken).toHaveBeenCalledWith(expectedHash);
@@ -59,7 +59,7 @@ describe('LogoutHandler', () => {
 
       expect(token.isRevoked()).toBe(false);
 
-      await handler.execute(makeCommand());
+      await useCase.execute(makeCommand());
 
       expect(token.isRevoked()).toBe(true);
       expect(mockRefreshTokenRepository.revoke).toHaveBeenCalledWith(token);
@@ -68,7 +68,7 @@ describe('LogoutHandler', () => {
     it('should resolve with void on success', async () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(makeActiveToken());
 
-      await expect(handler.execute(makeCommand())).resolves.toBeUndefined();
+      await expect(useCase.execute(makeCommand())).resolves.toBeUndefined();
     });
   });
 
@@ -77,8 +77,8 @@ describe('LogoutHandler', () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(null);
 
       try {
-        await handler.execute(makeCommand());
-        throw new Error('handler should have thrown');
+        await useCase.execute(makeCommand());
+        throw new Error('useCase should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AppException);
         expect((error as AppException).code).toBe(ErrorCode.UNAUTHORIZED);
@@ -90,8 +90,8 @@ describe('LogoutHandler', () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(makeActiveToken({ revoked: true }));
 
       try {
-        await handler.execute(makeCommand());
-        throw new Error('handler should have thrown');
+        await useCase.execute(makeCommand());
+        throw new Error('useCase should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AppException);
         expect((error as AppException).code).toBe(ErrorCode.UNAUTHORIZED);
@@ -102,7 +102,7 @@ describe('LogoutHandler', () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(null);
 
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch {
         // expected
       }
@@ -114,7 +114,7 @@ describe('LogoutHandler', () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(makeActiveToken({ revoked: true }));
 
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch {
         // expected
       }

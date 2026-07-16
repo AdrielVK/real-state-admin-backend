@@ -15,7 +15,7 @@ export class LogoutCommand implements ICommand {
 }
 
 @Injectable()
-export class LogoutHandler implements ICommandHandler<LogoutCommand, void> {
+export class LogoutUseCase implements ICommandHandler<LogoutCommand, void> {
   constructor(
     @Inject(IRefreshTokenRepositoryToken)
     private readonly refreshTokenRepository: IRefreshTokenRepository,

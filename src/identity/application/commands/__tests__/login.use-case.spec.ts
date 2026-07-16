@@ -13,7 +13,7 @@ import {
   User,
 } from '@identity/domain';
 
-import { LoginCommand, LoginHandler, type LoginResult } from '../login.handler';
+import { LoginCommand, type LoginResult, LoginUseCase } from '../login.use-case';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -71,8 +71,8 @@ function makeMockRefreshTokenRepository(): jest.Mocked<IRefreshTokenRepository> 
   } as jest.Mocked<IRefreshTokenRepository>;
 }
 
-describe('LoginHandler', () => {
-  let handler: LoginHandler;
+describe('LoginUseCase', () => {
+  let useCase: LoginUseCase;
   let mockUserRepository: jest.Mocked<IUserRepository>;
   let mockPasswordHasher: jest.Mocked<IPasswordHasher>;
   let mockTokenService: jest.Mocked<ITokenService>;
@@ -83,7 +83,7 @@ describe('LoginHandler', () => {
     mockPasswordHasher = makeMockPasswordHasher();
     mockTokenService = makeMockTokenService();
     mockRefreshTokenRepository = makeMockRefreshTokenRepository();
-    handler = new LoginHandler(
+    useCase = new LoginUseCase(
       mockUserRepository,
       mockPasswordHasher,
       mockTokenService,
@@ -98,7 +98,7 @@ describe('LoginHandler', () => {
       mockTokenService.generateAccessToken.mockResolvedValue('signed.jwt');
       mockTokenService.generateRefreshToken.mockReturnValue('raw-refresh-uuid');
 
-      const result: LoginResult = await handler.execute(makeCommand());
+      const result: LoginResult = await useCase.execute(makeCommand());
 
       expect(result.accessToken).toBe('signed.jwt');
       expect(result.refreshToken).toBe('raw-refresh-uuid');
@@ -115,7 +115,7 @@ describe('LoginHandler', () => {
       mockTokenService.generateAccessToken.mockResolvedValue('signed.jwt');
       mockTokenService.generateRefreshToken.mockReturnValue('raw-refresh-uuid');
 
-      await handler.execute(makeCommand({ email: 'jane@example.com' }));
+      await useCase.execute(makeCommand({ email: 'jane@example.com' }));
 
       expect(mockUserRepository.findByEmail).toHaveBeenCalledTimes(1);
       const emailArg = mockUserRepository.findByEmail.mock.calls[0]?.[0] as { value: string };
@@ -128,7 +128,7 @@ describe('LoginHandler', () => {
       mockTokenService.generateAccessToken.mockResolvedValue('signed.jwt');
       mockTokenService.generateRefreshToken.mockReturnValue('raw-refresh-uuid');
 
-      await handler.execute(makeCommand({ password: 'Secure1!' }));
+      await useCase.execute(makeCommand({ password: 'Secure1!' }));
 
       expect(mockPasswordHasher.compare).toHaveBeenCalledTimes(1);
       const [plainArg, hashArg] = mockPasswordHasher.compare.mock.calls[0] ?? [];
@@ -145,7 +145,7 @@ describe('LoginHandler', () => {
       mockTokenService.generateAccessToken.mockResolvedValue('signed.jwt');
       mockTokenService.generateRefreshToken.mockReturnValue('raw-refresh-uuid');
 
-      await handler.execute(makeCommand());
+      await useCase.execute(makeCommand());
 
       expect(mockTokenService.generateAccessToken).toHaveBeenCalledWith({
         sub: VALID_UUID,
@@ -161,7 +161,7 @@ describe('LoginHandler', () => {
       mockTokenService.generateRefreshToken.mockReturnValue('raw-refresh-uuid');
 
       const before = Date.now();
-      await handler.execute(makeCommand());
+      await useCase.execute(makeCommand());
       const after = Date.now();
 
       expect(mockTokenService.generateRefreshToken).toHaveBeenCalledTimes(1);
@@ -183,10 +183,10 @@ describe('LoginHandler', () => {
     it('should throw UNAUTHORIZED when user is not found', async () => {
       mockUserRepository.findByEmail.mockResolvedValue(null);
 
-      await expect(handler.execute(makeCommand())).rejects.toBeInstanceOf(AppException);
+      await expect(useCase.execute(makeCommand())).rejects.toBeInstanceOf(AppException);
 
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch (error) {
         expect(error).toBeInstanceOf(AppException);
         expect((error as AppException).code).toBe(ErrorCode.UNAUTHORIZED);
@@ -198,10 +198,10 @@ describe('LoginHandler', () => {
       mockUserRepository.findByEmail.mockResolvedValue(makeUser());
       mockPasswordHasher.compare.mockResolvedValue(false);
 
-      await expect(handler.execute(makeCommand())).rejects.toBeInstanceOf(AppException);
+      await expect(useCase.execute(makeCommand())).rejects.toBeInstanceOf(AppException);
 
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch (error) {
         expect(error).toBeInstanceOf(AppException);
         expect((error as AppException).code).toBe(ErrorCode.UNAUTHORIZED);
@@ -213,7 +213,7 @@ describe('LoginHandler', () => {
       mockUserRepository.findByEmail.mockResolvedValue(null);
 
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch {
         // expected
       }
@@ -229,7 +229,7 @@ describe('LoginHandler', () => {
       mockPasswordHasher.compare.mockResolvedValue(false);
 
       try {
-        await handler.execute(makeCommand());
+        await useCase.execute(makeCommand());
       } catch {
         // expected
       }
@@ -240,7 +240,7 @@ describe('LoginHandler', () => {
     });
 
     it('should propagate validation errors from invalid email format', async () => {
-      await expect(handler.execute(makeCommand({ email: 'not-an-email' }))).rejects.toThrow();
+      await expect(useCase.execute(makeCommand({ email: 'not-an-email' }))).rejects.toThrow();
       expect(mockUserRepository.findByEmail).not.toHaveBeenCalled();
     });
   });
