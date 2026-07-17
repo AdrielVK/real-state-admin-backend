@@ -15,6 +15,11 @@ enum UserRole {
   VISITOR
 }
 
+enum UserStatus {
+  ACTIVE
+  PENDING_PASSWORD_CHANGE
+}
+
 enum PropertyType {
   casa
   departamento
@@ -57,8 +62,9 @@ model User {
   passwordHash String   @map("password_hash")
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
-  role         UserRole @default(VISITOR)
-  createdAt    DateTime @default(now()) @map("created_at")
+  role         UserRole   @default(VISITOR)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
@@ -97,6 +103,7 @@ model Property {
 
   ownerProfileId String? @map("owner_profile_id")
   agentProfileId String? @map("agent_profile_id")
+  createdByUserId String? @map("created_by_user_id")
 
   addressPlaceId       String?  @map("address_place_id")
   addressFormatted     String   @map("address_formatted")
@@ -124,6 +131,7 @@ model Property {
   @@index([addressCity])
   @@index([addressNeighborhood])
   @@index([addressLatitude, addressLongitude])
+  @@index([createdByUserId])
   @@map("properties")
 }
 

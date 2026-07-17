@@ -3,6 +3,7 @@ import { AggregateRoot, DomainException, ErrorCode } from '@shared/domain';
 import type { CharacteristicCategory } from '../enums/characteristic-category.enum';
 import { PropertyStatus } from '../enums/property-status.enum';
 import type { PropertyType } from '../enums/property-type.enum';
+import { PropertyAddressChangedEvent } from '../events/property-address-changed.event';
 import { PropertyCreatedEvent } from '../events/property-created.event';
 import { PropertyDeletedEvent } from '../events/property-deleted.event';
 import type { PropertyAddress } from '../value-objects/property-address.value-object';
@@ -19,6 +20,7 @@ export interface PropertyCreateInput {
   ownerProfileId?: string | null;
   agentProfileId?: string | null;
   characteristics?: PropertyCharacteristicValue[];
+  createdByUserId?: string | null;
 }
 
 export interface PropertyReconstituteInput {
@@ -31,6 +33,7 @@ export interface PropertyReconstituteInput {
   ownerProfileId: string | null;
   agentProfileId: string | null;
   characteristics: PropertyCharacteristicValue[];
+  createdByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -45,6 +48,7 @@ interface PropertyInternalState {
   ownerProfileId: string | null;
   agentProfileId: string | null;
   characteristics: PropertyCharacteristicValue[];
+  createdByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -86,13 +90,19 @@ export class Property extends AggregateRoot<PropertyId> {
       ownerProfileId: input.ownerProfileId ?? null,
       agentProfileId: input.agentProfileId ?? null,
       characteristics: input.characteristics ?? [],
+      createdByUserId: input.createdByUserId ?? null,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
     });
 
     property.addDomainEvent(
-      new PropertyCreatedEvent(id.toValue(), input.internalCode ?? null, input.propertyType),
+      new PropertyCreatedEvent(
+        id.toValue(),
+        input.internalCode ?? null,
+        input.propertyType,
+        input.createdByUserId ?? null,
+      ),
     );
 
     return property;
@@ -108,6 +118,7 @@ export class Property extends AggregateRoot<PropertyId> {
       ownerProfileId: input.ownerProfileId,
       agentProfileId: input.agentProfileId,
       characteristics: [...input.characteristics],
+      createdByUserId: input.createdByUserId,
       createdAt: input.createdAt,
       updatedAt: input.updatedAt,
       deletedAt: input.deletedAt,
@@ -165,6 +176,24 @@ export class Property extends AggregateRoot<PropertyId> {
     this.addDomainEvent(new PropertyDeletedEvent(this.id.toValue()));
   }
 
+  updateAddress(address: PropertyAddress): void {
+    if (this._state.address.equals(address)) {
+      return;
+    }
+    const oldAddress = this._state.address;
+    const changedAt = new Date();
+    this._state.address = address;
+    this._state.updatedAt = changedAt;
+    this.addDomainEvent(
+      new PropertyAddressChangedEvent(
+        this.id.toValue(),
+        oldAddress.toPrimitives(),
+        address.toPrimitives(),
+        changedAt,
+      ),
+    );
+  }
+
   get internalCode(): string | null {
     return this._state.internalCode;
   }
@@ -185,6 +214,9 @@ export class Property extends AggregateRoot<PropertyId> {
   }
   get agentProfileId(): string | null {
     return this._state.agentProfileId;
+  }
+  get createdByUserId(): string | null {
+    return this._state.createdByUserId;
   }
   get characteristics(): PropertyCharacteristicValue[] {
     return [...this._state.characteristics];
@@ -209,6 +241,7 @@ export class Property extends AggregateRoot<PropertyId> {
       features: this._state.features,
       ownerProfileId: this._state.ownerProfileId,
       agentProfileId: this._state.agentProfileId,
+      createdByUserId: this._state.createdByUserId,
       characteristics: this._state.characteristics.map((c) => c),
       createdAt: this._state.createdAt,
       updatedAt: this._state.updatedAt,

@@ -2,17 +2,19 @@ import { randomUUID } from 'node:crypto';
 
 import type { IDomainEvent } from '@shared/domain';
 
-export class PropertyCreatedEvent implements IDomainEvent {
+import type { PropertyAddressProps } from '../value-objects/property-address.value-object';
+
+export class PropertyAddressChangedEvent implements IDomainEvent {
   readonly eventId: string;
   readonly occurredOn: Date;
   readonly aggregateId: string;
-  readonly eventName = 'property.created';
+  readonly eventName = 'property.address-changed';
 
   constructor(
     readonly propertyId: string,
-    readonly internalCode: string | null,
-    readonly propertyType: string,
-    readonly createdByUserId: string | null = null,
+    readonly oldAddress: PropertyAddressProps,
+    readonly newAddress: PropertyAddressProps,
+    readonly changedAt: Date,
   ) {
     this.eventId = randomUUID();
     this.occurredOn = new Date();

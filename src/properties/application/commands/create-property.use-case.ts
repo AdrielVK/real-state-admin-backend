@@ -24,7 +24,10 @@ import type { CreatePropertyDto } from '../dto/create-property.dto';
 export class CreatePropertyCommand implements ICommand<Property> {
   readonly _resultType?: Property;
 
-  constructor(readonly dto: CreatePropertyDto) {}
+  constructor(
+    readonly dto: CreatePropertyDto,
+    readonly creatorId: string,
+  ) {}
 }
 
 @Injectable()
@@ -37,8 +40,9 @@ export class CreatePropertyUseCase implements ICommandHandler<CreatePropertyComm
   ) {}
 
   async execute(command: CreatePropertyCommand): Promise<Property> {
-    const { dto } = command;
+    const { dto, creatorId } = command;
 
+    this.ensureCreatorIdIsPresent(creatorId);
     this.ensureCharacteristicsAreUnique(dto.characteristics);
     await this.ensureInternalCodeUnique(dto.internalCode);
     await this.ensureProfilesExist(dto.agentProfileId, dto.ownerProfileId);
@@ -54,6 +58,7 @@ export class CreatePropertyUseCase implements ICommandHandler<CreatePropertyComm
       characteristics: (dto.characteristics ?? []).map((c) =>
         PropertyCharacteristicValue.fromCreate(c.name, c.slug, c.category),
       ),
+      createdByUserId: creatorId,
     });
 
     await this.propertyRepository.save(property);
@@ -62,6 +67,15 @@ export class CreatePropertyUseCase implements ICommandHandler<CreatePropertyComm
     await Promise.all(events.map(async (event) => this.eventPublisher.publish(event)));
 
     return property;
+  }
+
+  private ensureCreatorIdIsPresent(creatorId: string): void {
+    if (!creatorId || creatorId.trim() === '') {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'El identificador del usuario creador es obligatorio',
+      );
+    }
   }
 
   private ensureCharacteristicsAreUnique(

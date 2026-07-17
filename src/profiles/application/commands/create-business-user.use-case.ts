@@ -17,7 +17,6 @@ import {
   User,
   UserEmail,
 } from '../../../identity/domain';
-import { AdminProfile } from '../../domain';
 import { CreateBusinessUserCommand } from './create-business-user.command';
 
 @Injectable()
@@ -28,19 +27,15 @@ export class CreateBusinessUserUseCase implements ICommandHandler<CreateBusiness
     @Inject('IDomainEventPublisher') private readonly eventPublisher: IDomainEventPublisher,
   ) {}
 
+  private checkRoleEnablementOfNewBusinessUser(role: UserRole): void {
+    if (role != UserRole.ADMIN) return;
+    throw new AppException(ErrorCode.INVALID_ROLE, 'No se puede crear otro usuario administrador');
+  }
+
   async execute(command: CreateBusinessUserCommand): Promise<User> {
     const { dto } = command;
 
-    const authorization = AdminProfile.canCreateBusinessUser(UserRole.ADMIN, dto.role);
-    if (authorization.isFail) {
-      const error = authorization.getError();
-      throw new AppException(
-        (error.code as ErrorCode | undefined) ?? ErrorCode.FORBIDDEN,
-        error.message,
-        undefined,
-        undefined,
-      );
-    }
+    this.checkRoleEnablementOfNewBusinessUser(dto.role);
 
     const email = new UserEmail(dto.email);
 
@@ -51,13 +46,13 @@ export class CreateBusinessUserUseCase implements ICommandHandler<CreateBusiness
 
     const plainPassword = PlainPassword.create(dto.password);
 
-    const user = await User.register(
+    const user = await User.createBusinessUser(
       email,
       plainPassword,
       dto.firstName,
       dto.lastName,
-      this.passwordHasher,
       dto.role,
+      this.passwordHasher,
     );
 
     const savedUser = await this.userRepository.save(user);

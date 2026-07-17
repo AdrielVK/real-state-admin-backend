@@ -4,10 +4,14 @@ export { CharacteristicCategory } from './enums/characteristic-category.enum';
 export { ConservationState } from './enums/conservation-state.enum';
 export { PropertyStatus } from './enums/property-status.enum';
 export { PropertyType } from './enums/property-type.enum';
-export { PropertyCreatedEvent, PropertyDeletedEvent } from './events';
+export { PropertyAddressChangedEvent, PropertyCreatedEvent, PropertyDeletedEvent } from './events';
 export type { IProfileExistenceService } from './ports/profile-existence.service';
 export { IProfileExistenceServiceToken } from './ports/profile-existence.service';
-export type { IPropertyRepository } from './repositories/property-repository.interface';
+export type {
+  IPropertyRepository,
+  PropertyCountFilters,
+  PropertyPaginationFilters,
+} from './repositories/property-repository.interface';
 export { IPropertyRepositoryToken } from './repositories/property-repository.interface';
 export {
   PropertyAddress,

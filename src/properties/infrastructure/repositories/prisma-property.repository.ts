@@ -3,7 +3,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure';
 
 import { Property } from '../../domain/entities/property.aggregate';
-import type { IPropertyRepository } from '../../domain/repositories/property-repository.interface';
+import type {
+  IPropertyRepository,
+  PropertyCountFilters,
+  PropertyPaginationFilters,
+} from '../../domain/repositories/property-repository.interface';
 import { PropertyId } from '../../domain/value-objects/property-id.value-object';
 import { PrismaPropertyMapper } from '../mappers/prisma-property.mapper';
 
@@ -32,6 +36,31 @@ export class PrismaPropertyRepository implements IPropertyRepository {
     return row ? PrismaPropertyMapper.toDomain(row) : null;
   }
 
+  async findMany(filters: PropertyPaginationFilters): Promise<Property[]> {
+    const { page, limit, createdByUserId } = filters;
+    const where: { deletedAt: null; createdByUserId?: string } = { deletedAt: null };
+    if (createdByUserId !== undefined) {
+      where.createdByUserId = createdByUserId;
+    }
+
+    const rows = await this.prisma.property.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: PROPERTY_WITH_RELATIONS_INCLUDE,
+    });
+    return rows.map((row) => PrismaPropertyMapper.toDomain(row));
+  }
+
+  async count(filters: PropertyCountFilters): Promise<number> {
+    const where: { deletedAt: null; createdByUserId?: string } = { deletedAt: null };
+    if (filters.createdByUserId !== undefined) {
+      where.createdByUserId = filters.createdByUserId;
+    }
+    return this.prisma.property.count({ where });
+  }
+
   async save(property: Property): Promise<void> {
     const data = PrismaPropertyMapper.toPersistence(property);
 
@@ -42,6 +71,7 @@ export class PrismaPropertyRepository implements IPropertyRepository {
         propertyType: data.propertyType,
         ownerProfileId: data.ownerProfileId,
         agentProfileId: data.agentProfileId,
+        createdByUserId: data.createdByUserId,
         addressPlaceId: data.addressPlaceId,
         addressFormatted: data.addressFormatted,
         addressStreet: data.addressStreet,

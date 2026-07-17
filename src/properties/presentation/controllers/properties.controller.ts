@@ -6,11 +6,20 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
+  Query,
+  Req,
 } from '@nestjs/common';
 
 import { UserRole } from '@shared/domain';
-import { Roles } from '@shared/presentation';
+import { type PaginationMeta, Roles } from '@shared/presentation';
+
+interface AuthenticatedUser {
+  sub: string;
+  email: string;
+  role: string;
+}
 
 import {
   CreatePropertyCommand,
@@ -20,12 +29,27 @@ import {
   DeletePropertyCommand,
   DeletePropertyUseCase,
 } from '../../application/commands/delete-property.use-case';
+import {
+  EditPropertyAddressCommand,
+  EditPropertyAddressUseCase,
+} from '../../application/commands/edit-property-address.use-case';
 import { CreatePropertyDto } from '../../application/dto/create-property.dto';
+import { EditPropertyAddressDto } from '../../application/dto/edit-property-address.dto';
 import {
   GetPropertyByIdQuery,
   GetPropertyByIdUseCase,
 } from '../../application/queries/get-property-by-id.use-case';
+import {
+  ListAllPropertiesQuery,
+  ListAllPropertiesUseCase,
+  type PaginatedPropertiesResult,
+} from '../../application/queries/list-all-properties.use-case';
+import {
+  ListMyPropertiesQuery,
+  ListMyPropertiesUseCase,
+} from '../../application/queries/list-my-properties.use-case';
 import type { Property, PropertyCharacteristicValue } from '../../domain';
+import { PaginationQueryDto } from '../../shared/dto/pagination-query.dto';
 
 export interface PropertyCharacteristicResponse {
   id: number;
@@ -67,6 +91,7 @@ export interface PropertyResponse {
   propertyType: string;
   ownerProfileId: string | null;
   agentProfileId: string | null;
+  createdByUserId: string | null;
   address: PropertyAddressResponse;
   features: PropertyFeaturesResponse | null;
   characteristics: PropertyCharacteristicResponse[];
@@ -102,6 +127,7 @@ function mapProperty(property: Property): PropertyResponse {
     propertyType: property.propertyType,
     ownerProfileId: property.ownerProfileId,
     agentProfileId: property.agentProfileId,
+    createdByUserId: property.createdByUserId,
     address: {
       placeId: property.address.addressPlaceId,
       formatted: property.address.addressFormatted,
@@ -135,12 +161,25 @@ function mapProperty(property: Property): PropertyResponse {
   };
 }
 
+function mapPaginated(result: PaginatedPropertiesResult): {
+  data: PropertyResponse[];
+  meta: PaginationMeta;
+} {
+  return {
+    data: result.data.map((p) => mapProperty(p)),
+    meta: result.meta,
+  };
+}
+
 @Controller('properties')
 export class PropertiesController {
   constructor(
     private readonly createPropertyUseCase: CreatePropertyUseCase,
     private readonly getPropertyByIdUseCase: GetPropertyByIdUseCase,
     private readonly deletePropertyUseCase: DeletePropertyUseCase,
+    private readonly editPropertyAddressUseCase: EditPropertyAddressUseCase,
+    private readonly listAllPropertiesUseCase: ListAllPropertiesUseCase,
+    private readonly listMyPropertiesUseCase: ListMyPropertiesUseCase,
   ) {}
 
   @Roles(UserRole.ADMIN, UserRole.AGENT, UserRole.ADMINISTRATIVE)
@@ -148,9 +187,39 @@ export class PropertiesController {
   @HttpCode(201)
   async create(
     @Body() dto: CreatePropertyDto,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<{ message: string; data: PropertyResponse }> {
-    const property = await this.createPropertyUseCase.execute(new CreatePropertyCommand(dto));
+    const property = await this.createPropertyUseCase.execute(
+      new CreatePropertyCommand(dto, req.user.sub),
+    );
     return { message: 'Propiedad creada con éxito', data: mapProperty(property) };
+  }
+
+  // CRITICAL: this @Get() must be declared BEFORE @Get(':id') so NestJS does not
+  // attempt to parse the literal "me" as a UUID route parameter.
+  @Roles(UserRole.ADMIN)
+  @Get()
+  async listAll(
+    @Query() pagination: PaginationQueryDto,
+  ): Promise<{ data: PropertyResponse[]; meta: PaginationMeta }> {
+    const result = await this.listAllPropertiesUseCase.execute(
+      new ListAllPropertiesQuery(pagination.page, pagination.limit),
+    );
+    return mapPaginated(result);
+  }
+
+  // CRITICAL: this @Get('me') must be declared BEFORE @Get(':id') so NestJS does not
+  // attempt to parse the literal "me" as a UUID route parameter.
+  @Roles(UserRole.ADMIN, UserRole.AGENT, UserRole.ADMINISTRATIVE)
+  @Get('me')
+  async listMy(
+    @Req() req: { user: AuthenticatedUser },
+    @Query() pagination: PaginationQueryDto,
+  ): Promise<{ data: PropertyResponse[]; meta: PaginationMeta }> {
+    const result = await this.listMyPropertiesUseCase.execute(
+      new ListMyPropertiesQuery(req.user.sub, pagination.page, pagination.limit),
+    );
+    return mapPaginated(result);
   }
 
   @Roles(UserRole.ADMIN, UserRole.AGENT, UserRole.ADMINISTRATIVE)
@@ -168,5 +237,17 @@ export class PropertiesController {
   async delete(@Param('id', ParseUUIDPipe) id: string): Promise<{ message: string }> {
     await this.deletePropertyUseCase.execute(new DeletePropertyCommand(id));
     return { message: 'Propiedad eliminada con éxito' };
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Patch(':id/address')
+  async editAddress(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EditPropertyAddressDto,
+  ): Promise<{ message: string; data: PropertyResponse }> {
+    const property = await this.editPropertyAddressUseCase.execute(
+      new EditPropertyAddressCommand(id, dto),
+    );
+    return { message: 'Dirección actualizada con éxito', data: mapProperty(property) };
   }
 }

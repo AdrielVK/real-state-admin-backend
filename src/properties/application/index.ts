@@ -1,12 +1,27 @@
+export { PaginationQueryDto } from '../shared/dto/pagination-query.dto';
 export { CreatePropertyCommand, CreatePropertyUseCase } from './commands/create-property.use-case';
 export { DeletePropertyCommand, DeletePropertyUseCase } from './commands/delete-property.use-case';
+export {
+  EditPropertyAddressCommand,
+  EditPropertyAddressUseCase,
+} from './commands/edit-property-address.use-case';
 export {
   CreatePropertyAddressDto,
   CreatePropertyCharacteristicDto,
   CreatePropertyDto,
   CreatePropertyFeaturesDto,
 } from './dto/create-property.dto';
+export { EditPropertyAddressDto } from './dto/edit-property-address.dto';
 export {
   GetPropertyByIdQuery,
   GetPropertyByIdUseCase,
 } from './queries/get-property-by-id.use-case';
+export {
+  ListAllPropertiesQuery,
+  ListAllPropertiesUseCase,
+  type PaginatedPropertiesResult,
+} from './queries/list-all-properties.use-case';
+export {
+  ListMyPropertiesQuery,
+  ListMyPropertiesUseCase,
+} from './queries/list-my-properties.use-case';

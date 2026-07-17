@@ -98,6 +98,10 @@ export class PropertyAddress extends ValueObject<PropertyAddressProps> {
     return this.props.addressLongitude;
   }
 
+  toPrimitives(): PropertyAddressProps {
+    return { ...this.props };
+  }
+
   static fromCreateDto(dto: {
     addressPlaceId?: string | null;
     addressFormatted: string;

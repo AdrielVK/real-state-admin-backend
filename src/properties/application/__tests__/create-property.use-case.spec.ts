@@ -70,6 +70,8 @@ function makeRepository(): jest.Mocked<IPropertyRepository> {
   return {
     findById: jest.fn(),
     findByInternalCode: jest.fn().mockResolvedValue(null),
+    findMany: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
     save: jest.fn().mockResolvedValue(),
   };
 }
@@ -101,6 +103,7 @@ describe('CreatePropertyUseCase', () => {
         ownerProfileId: null,
         agentProfileId: null,
         characteristics: [],
+        createdByUserId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         deletedAt: null,
@@ -108,9 +111,9 @@ describe('CreatePropertyUseCase', () => {
     );
     const useCase = new CreatePropertyUseCase(repo, makeEventPublisher(), makeProfileExistence());
 
-    await expect(useCase.execute(new CreatePropertyCommand(makeValidDto()))).rejects.toBeInstanceOf(
-      AppException,
-    );
+    await expect(
+      useCase.execute(new CreatePropertyCommand(makeValidDto(), 'user-uuid-create')),
+    ).rejects.toBeInstanceOf(AppException);
   });
 
   it('should build, persist, and dispatch domain events', async () => {
@@ -118,7 +121,9 @@ describe('CreatePropertyUseCase', () => {
     const eventPublisher = makeEventPublisher();
     const useCase = new CreatePropertyUseCase(repo, eventPublisher, makeProfileExistence());
 
-    const result = await useCase.execute(new CreatePropertyCommand(makeValidDto()));
+    const result = await useCase.execute(
+      new CreatePropertyCommand(makeValidDto(), 'user-uuid-create'),
+    );
 
     expect(result).toBeInstanceOf(Property);
     expect(result.internalCode).toBe('PROP-001');
@@ -126,6 +131,7 @@ describe('CreatePropertyUseCase', () => {
     expect(result.status).toBe(PropertyStatus.DISPONIBLE);
     expect(result.ownerProfileId).toBe('owner-1');
     expect(result.agentProfileId).toBe('agent-1');
+    expect(result.createdByUserId).toBe('user-uuid-create');
     expect(result.characteristics).toHaveLength(1);
     expect(result.characteristics[0]?.id).toBeNull();
     expect(result.characteristics[0]?.slug).toBe('piscina');
@@ -135,6 +141,7 @@ describe('CreatePropertyUseCase', () => {
       expect.objectContaining({
         eventName: 'property.created',
         propertyId: result.id.toValue(),
+        createdByUserId: 'user-uuid-create',
       }),
     );
   });
@@ -148,7 +155,7 @@ describe('CreatePropertyUseCase', () => {
       makeProfileExistence(),
     );
 
-    const result = await useCase.execute(new CreatePropertyCommand(dto));
+    const result = await useCase.execute(new CreatePropertyCommand(dto, 'user-uuid-d'));
 
     expect(result.status).toBe(PropertyStatus.DISPONIBLE);
   });
@@ -162,7 +169,7 @@ describe('CreatePropertyUseCase', () => {
       makeProfileExistence(),
     );
 
-    const result = await useCase.execute(new CreatePropertyCommand(dto));
+    const result = await useCase.execute(new CreatePropertyCommand(dto, 'user-uuid-f'));
 
     expect(result.features).toBeNull();
   });
@@ -176,7 +183,7 @@ describe('CreatePropertyUseCase', () => {
       makeProfileExistence(),
     );
 
-    const result = await useCase.execute(new CreatePropertyCommand(dto));
+    const result = await useCase.execute(new CreatePropertyCommand(dto, 'user-uuid-c'));
 
     expect(result.characteristics).toEqual([]);
   });
@@ -187,7 +194,7 @@ describe('CreatePropertyUseCase', () => {
     const repo = makeRepository();
     const useCase = new CreatePropertyUseCase(repo, makeEventPublisher(), makeProfileExistence());
 
-    await useCase.execute(new CreatePropertyCommand(dto));
+    await useCase.execute(new CreatePropertyCommand(dto, 'user-uuid-i'));
 
     expect(repo.findByInternalCode).not.toHaveBeenCalled();
   });
@@ -197,9 +204,9 @@ describe('CreatePropertyUseCase', () => {
     profiles.agentExists.mockResolvedValue(false);
     const useCase = new CreatePropertyUseCase(makeRepository(), makeEventPublisher(), profiles);
 
-    await expect(useCase.execute(new CreatePropertyCommand(makeValidDto()))).rejects.toBeInstanceOf(
-      AppException,
-    );
+    await expect(
+      useCase.execute(new CreatePropertyCommand(makeValidDto(), 'user-uuid-a')),
+    ).rejects.toBeInstanceOf(AppException);
   });
 
   it('should reject when ownerProfileId references a non-existent profile', async () => {
@@ -207,9 +214,9 @@ describe('CreatePropertyUseCase', () => {
     profiles.ownerExists.mockResolvedValue(false);
     const useCase = new CreatePropertyUseCase(makeRepository(), makeEventPublisher(), profiles);
 
-    await expect(useCase.execute(new CreatePropertyCommand(makeValidDto()))).rejects.toBeInstanceOf(
-      AppException,
-    );
+    await expect(
+      useCase.execute(new CreatePropertyCommand(makeValidDto(), 'user-uuid-o')),
+    ).rejects.toBeInstanceOf(AppException);
   });
 
   it('should skip profile validation when IDs are not provided', async () => {
@@ -219,7 +226,7 @@ describe('CreatePropertyUseCase', () => {
     const profiles = makeProfileExistence();
     const useCase = new CreatePropertyUseCase(makeRepository(), makeEventPublisher(), profiles);
 
-    await useCase.execute(new CreatePropertyCommand(dto));
+    await useCase.execute(new CreatePropertyCommand(dto, 'user-uuid-s'));
 
     expect(profiles.agentExists).not.toHaveBeenCalled();
     expect(profiles.ownerExists).not.toHaveBeenCalled();
@@ -237,9 +244,9 @@ describe('CreatePropertyUseCase', () => {
       makeProfileExistence(),
     );
 
-    await expect(useCase.execute(new CreatePropertyCommand(dto))).rejects.toBeInstanceOf(
-      AppException,
-    );
+    await expect(
+      useCase.execute(new CreatePropertyCommand(dto, 'user-uuid-dup')),
+    ).rejects.toBeInstanceOf(AppException);
   });
 
   it('should reject with the same slug in different categories (still distinct — both allowed)', async () => {
@@ -254,8 +261,20 @@ describe('CreatePropertyUseCase', () => {
       makeProfileExistence(),
     );
 
-    const result = await useCase.execute(new CreatePropertyCommand(dto));
+    const result = await useCase.execute(new CreatePropertyCommand(dto, 'user-uuid-cat'));
 
     expect(result.characteristics).toHaveLength(2);
+  });
+
+  it('should reject a command when creatorId is missing', async () => {
+    const useCase = new CreatePropertyUseCase(
+      makeRepository(),
+      makeEventPublisher(),
+      makeProfileExistence(),
+    );
+
+    await expect(
+      useCase.execute(new CreatePropertyCommand(makeValidDto(), '')),
+    ).rejects.toBeInstanceOf(AppException);
   });
 });

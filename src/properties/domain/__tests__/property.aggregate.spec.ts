@@ -62,6 +62,7 @@ describe('Property aggregate', () => {
         propertyType: PropertyType.DEPARTAMENTO,
         status: PropertyStatus.DISPONIBLE,
         features,
+        createdByUserId: 'user-uuid-evt',
       });
 
       expect(property).toBeInstanceOf(Property);
@@ -75,12 +76,14 @@ describe('Property aggregate', () => {
       expect(property.characteristics).toEqual([]);
       expect(property.ownerProfileId).toBeNull();
       expect(property.agentProfileId).toBeNull();
+      expect(property.createdByUserId).toBe('user-uuid-evt');
       expect(property.deletedAt).toBeNull();
       expect(property.domainEvents).toHaveLength(1);
       expect(property.domainEvents[0]).toMatchObject({
         eventName: 'property.created',
         internalCode: 'PROP-001',
         propertyId: property.id.toValue(),
+        createdByUserId: 'user-uuid-evt',
       });
     });
 
@@ -108,6 +111,18 @@ describe('Property aggregate', () => {
 
       expect(property.ownerProfileId).toBe('owner-1');
       expect(property.agentProfileId).toBe('agent-1');
+    });
+
+    it('should store createdByUserId when provided and expose it via getter', () => {
+      const property = Property.create({
+        internalCode: 'PROP-AUDIT-001',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        features: makeValidFeatures(),
+        createdByUserId: 'user-uuid-1',
+      });
+
+      expect(property.createdByUserId).toBe('user-uuid-1');
     });
 
     it('should reject empty internalCode', () => {
@@ -154,6 +169,7 @@ describe('Property aggregate', () => {
         ownerProfileId: 'owner-1',
         agentProfileId: null,
         characteristics: [characteristic],
+        createdByUserId: 'user-uuid-recon',
         createdAt,
         updatedAt,
         deletedAt,
@@ -167,7 +183,29 @@ describe('Property aggregate', () => {
       expect(property.characteristics).toHaveLength(1);
       expect(property.characteristics[0]).toBe(characteristic);
       expect(property.deletedAt).toBe(deletedAt);
+      expect(property.createdByUserId).toBe('user-uuid-recon');
       expect(property.domainEvents).toHaveLength(0);
+    });
+
+    it('should reconstitute with null createdByUserId (legacy rows)', () => {
+      const id = PropertyId.generate();
+      const property = Property.reconstitute({
+        id,
+        internalCode: 'PROP-LEGACY',
+        address: makeValidAddress(),
+        propertyType: PropertyType.CASA,
+        status: PropertyStatus.DISPONIBLE,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: null,
+        characteristics: [],
+        createdByUserId: null,
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-02'),
+        deletedAt: null,
+      });
+
+      expect(property.createdByUserId).toBeNull();
     });
   });
 
@@ -296,6 +334,101 @@ describe('Property aggregate', () => {
     });
   });
 
+  describe('updateAddress()', () => {
+    function makePropertyForAddressUpdate(): Property {
+      return Property.create({
+        internalCode: 'PROP-ADDR',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        features: makeValidFeatures(),
+      });
+    }
+
+    function makeDifferentAddress(): PropertyAddress {
+      return new PropertyAddress({
+        addressPlaceId: 'place-2',
+        addressFormatted: 'Av. Santa Fe 2500',
+        addressStreet: 'Av. Santa Fe',
+        addressStreetNumber: '2500',
+        addressNeighborhood: 'Palermo',
+        addressCity: 'CABA',
+        addressState: 'Buenos Aires',
+        addressCountry: 'Argentina',
+        addressPostalCode: 'C1425',
+        addressLatitude: -34.595,
+        addressLongitude: -58.397,
+      });
+    }
+
+    it('should replace the address, bump updatedAt, and emit PropertyAddressChangedEvent with old/new snapshots', async () => {
+      const property = makePropertyForAddressUpdate();
+      const originalAddress = property.address;
+      const newAddress = makeDifferentAddress();
+      const createdEventCount = property.domainEvents.length;
+      const originalUpdatedAt = property.updatedAt;
+
+      // Tiny delay so updatedAt is observably later than the original timestamp.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      property.updateAddress(newAddress);
+
+      // Address is replaced
+      expect(property.address).toBe(newAddress);
+      expect(property.address).not.toBe(originalAddress);
+
+      // updatedAt is advanced
+      expect(property.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+
+      // Event was emitted with old and new snapshots
+      const events = property.domainEvents;
+      expect(events).toHaveLength(createdEventCount + 1);
+      const lastEvent = events.at(-1)!;
+      expect(lastEvent.eventName).toBe('property.address-changed');
+      expect(lastEvent).toMatchObject({
+        propertyId: property.id.toValue(),
+      });
+      // Snapshots expose all the address fields from the VO
+      const newAddressEvent = lastEvent as unknown as {
+        newAddress: ReturnType<PropertyAddress['toPrimitives']>;
+        oldAddress: ReturnType<PropertyAddress['toPrimitives']>;
+      };
+      expect(newAddressEvent.oldAddress).toEqual(originalAddress.toPrimitives());
+      expect(newAddressEvent.newAddress).toEqual(newAddress.toPrimitives());
+      expect(newAddressEvent.oldAddress.addressFormatted).toBe('Av. Corrientes 1234');
+      expect(newAddressEvent.newAddress.addressFormatted).toBe('Av. Santa Fe 2500');
+    });
+
+    it('should be a no-op when the new address equals the current one (idempotent)', () => {
+      const property = makePropertyForAddressUpdate();
+      // Build an address that is structurally equal to the one created by the aggregate.
+      const equalAddress = new PropertyAddress({
+        addressPlaceId: 'place-1',
+        addressFormatted: 'Av. Corrientes 1234',
+        addressStreet: 'Av. Corrientes',
+        addressStreetNumber: '1234',
+        addressNeighborhood: 'San Nicolás',
+        addressCity: 'CABA',
+        addressState: 'Buenos Aires',
+        addressCountry: 'Argentina',
+        addressPostalCode: 'C1043',
+        addressLatitude: -34.6037,
+        addressLongitude: -58.3816,
+      });
+      expect(equalAddress.equals(property.address)).toBe(true);
+
+      const eventsBefore = property.domainEvents.length;
+      const updatedAtBefore = property.updatedAt;
+      const addressBefore = property.address;
+
+      property.updateAddress(equalAddress);
+
+      // No change to address, updatedAt, or events
+      expect(property.address).toBe(addressBefore);
+      expect(property.updatedAt).toBe(updatedAtBefore);
+      expect(property.domainEvents).toHaveLength(eventsBefore);
+    });
+  });
+
   describe('toPrimitives()', () => {
     it('should expose all aggregate fields', () => {
       const address = makeValidAddress();
@@ -307,6 +440,7 @@ describe('Property aggregate', () => {
         features,
         ownerProfileId: 'owner-1',
         agentProfileId: 'agent-1',
+        createdByUserId: 'user-uuid-prim',
       });
       property.addCharacteristic(makeCharacteristic(1, 'piscina'));
 
@@ -320,6 +454,7 @@ describe('Property aggregate', () => {
       expect(primitives.features).toBe(features);
       expect(primitives.ownerProfileId).toBe('owner-1');
       expect(primitives.agentProfileId).toBe('agent-1');
+      expect(primitives.createdByUserId).toBe('user-uuid-prim');
       expect((primitives.characteristics as PropertyCharacteristicValue[])[0]?.id).toBe(1);
       expect(primitives.deletedAt).toBeNull();
     });

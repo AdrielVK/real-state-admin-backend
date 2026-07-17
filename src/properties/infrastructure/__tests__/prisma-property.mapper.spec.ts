@@ -49,6 +49,7 @@ function makePrismaProperty(overrides: Record<string, unknown> = {}) {
     propertyType?: PropertyType;
     ownerProfileId?: string | null;
     agentProfileId?: string | null;
+    createdByUserId?: string | null;
     addressPlaceId?: string | null;
     addressFormatted?: string;
     addressStreet?: string | null;
@@ -75,6 +76,7 @@ function makePrismaProperty(overrides: Record<string, unknown> = {}) {
     propertyType: o.propertyType ?? PropertyType.DEPARTAMENTO,
     ownerProfileId: o.ownerProfileId ?? null,
     agentProfileId: o.agentProfileId ?? null,
+    createdByUserId: o.createdByUserId ?? null,
     addressPlaceId: o.addressPlaceId ?? 'place-1',
     addressFormatted: o.addressFormatted ?? 'Av. Corrientes 1234, CABA',
     addressStreet: o.addressStreet ?? 'Av. Corrientes',
@@ -170,6 +172,22 @@ describe('PrismaPropertyMapper', () => {
 
       expect(property.characteristics).toEqual([]);
     });
+
+    it('should map createdByUserId from prisma row to the aggregate', () => {
+      const prismaProperty = makePrismaProperty({ createdByUserId: 'user-uuid-mapper' });
+
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
+
+      expect(property.createdByUserId).toBe('user-uuid-mapper');
+    });
+
+    it('should preserve null createdByUserId (legacy rows)', () => {
+      const prismaProperty = makePrismaProperty({ createdByUserId: null });
+
+      const property = PrismaPropertyMapper.toDomain(prismaProperty as never);
+
+      expect(property.createdByUserId).toBeNull();
+    });
   });
 
   describe('toPersistence()', () => {
@@ -205,6 +223,7 @@ describe('PrismaPropertyMapper', () => {
         }),
         ownerProfileId: 'owner-1',
         agentProfileId: 'agent-1',
+        createdByUserId: 'user-uuid-pers',
         characteristics: [
           PropertyCharacteristicValue.fromPersistence(
             1,
@@ -226,6 +245,7 @@ describe('PrismaPropertyMapper', () => {
       expect(data.propertyType).toBe(PropertyType.DEPARTAMENTO);
       expect(data.ownerProfileId).toBe('owner-1');
       expect(data.agentProfileId).toBe('agent-1');
+      expect(data.createdByUserId).toBe('user-uuid-pers');
       expect(data.addressCity).toBe('CABA');
       expect(data.addressCountry).toBe('Argentina');
       expect(data.addressFormatted).toBe('Av. Corrientes 1234, CABA');

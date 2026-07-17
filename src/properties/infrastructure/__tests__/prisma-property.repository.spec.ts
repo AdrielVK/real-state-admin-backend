@@ -26,6 +26,8 @@ import { PrismaPropertyRepository } from '../repositories/prisma-property.reposi
 interface PrismaStub {
   property: {
     findFirst: jest.Mock;
+    findMany: jest.Mock;
+    count: jest.Mock;
     upsert: jest.Mock;
   };
   propertyFeatures: {
@@ -45,6 +47,8 @@ function makeStub(overrides: Partial<PrismaStub> = {}): PrismaStub {
   const stub: PrismaStub = {
     property: {
       findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
       upsert: jest.fn().mockResolvedValue(),
     },
     propertyFeatures: {
@@ -124,6 +128,7 @@ function makePrismaRow() {
     propertyType: PropertyType.DEPARTAMENTO,
     ownerProfileId: 'owner-1',
     agentProfileId: 'agent-1',
+    createdByUserId: 'user-uuid-row',
     addressPlaceId: 'place-1',
     addressFormatted: 'Calle 1',
     addressStreet: null,
@@ -169,6 +174,8 @@ describe('PrismaPropertyRepository', () => {
       const stub = makeStub({
         property: {
           findFirst: jest.fn().mockResolvedValue(row),
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(0),
           upsert: jest.fn(),
         },
       });
@@ -206,6 +213,8 @@ describe('PrismaPropertyRepository', () => {
       const stub = makeStub({
         property: {
           findFirst: jest.fn().mockResolvedValue(row),
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(0),
           upsert: jest.fn(),
         },
       });
@@ -227,6 +236,108 @@ describe('PrismaPropertyRepository', () => {
       const result = await repo.findByInternalCode('PROP-MISSING');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('findMany()', () => {
+    it('should call prisma with skip/take/where (deletedAt null) and return mapped aggregates', async () => {
+      const row = makePrismaRow();
+      const stub = makeStub({
+        property: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([row]),
+          count: jest.fn().mockResolvedValue(1),
+          upsert: jest.fn(),
+        },
+      });
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      const result = await repo.findMany({ page: 1, limit: 10 });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id.toValue()).toBe(row.id);
+      expect(stub.property.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { deletedAt: null },
+          skip: 0,
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+    });
+
+    it('should paginate correctly using page and limit', async () => {
+      const stub = makeStub({
+        property: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(0),
+          upsert: jest.fn(),
+        },
+      });
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      await repo.findMany({ page: 3, limit: 5 });
+
+      expect(stub.property.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 5 }),
+      );
+    });
+
+    it('should filter by createdByUserId when provided', async () => {
+      const stub = makeStub({
+        property: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(0),
+          upsert: jest.fn(),
+        },
+      });
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      await repo.findMany({ createdByUserId: 'user-uuid-1', page: 1, limit: 10 });
+
+      expect(stub.property.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { deletedAt: null, createdByUserId: 'user-uuid-1' } }),
+      );
+    });
+  });
+
+  describe('count()', () => {
+    it('should call prisma count with deletedAt null and no other filter', async () => {
+      const stub = makeStub({
+        property: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(42),
+          upsert: jest.fn(),
+        },
+      });
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      const result = await repo.count({});
+
+      expect(result).toBe(42);
+      expect(stub.property.count).toHaveBeenCalledWith({ where: { deletedAt: null } });
+    });
+
+    it('should filter by createdByUserId when provided', async () => {
+      const stub = makeStub({
+        property: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(3),
+          upsert: jest.fn(),
+        },
+      });
+      const repo = new PrismaPropertyRepository(makePrismaService(stub));
+
+      const result = await repo.count({ createdByUserId: 'user-uuid-2' });
+
+      expect(result).toBe(3);
+      expect(stub.property.count).toHaveBeenCalledWith({
+        where: { deletedAt: null, createdByUserId: 'user-uuid-2' },
+      });
     });
   });
 
