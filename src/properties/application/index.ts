@@ -10,6 +10,10 @@ export {
   EditPropertyCharacteristicsUseCase,
 } from './commands/edit-property-characteristics.use-case';
 export {
+  EditPropertyFeaturesCommand,
+  EditPropertyFeaturesUseCase,
+} from './commands/edit-property-features.use-case';
+export {
   EditPropertyStatusCommand,
   EditPropertyStatusUseCase,
 } from './commands/edit-property-status.use-case';
@@ -25,6 +29,7 @@ export {
   EditPropertyCharacteristicsDto as EditPropertyCharacteristicsDtoClass,
   RemoveCharacteristicDto,
 } from './dto/edit-property-characteristics.dto';
+export { EditPropertyFeaturesDto } from './dto/edit-property-features.dto';
 export { EditPropertyStatusDto } from './dto/edit-property-status.dto';
 export {
   GetPropertyByIdQuery,

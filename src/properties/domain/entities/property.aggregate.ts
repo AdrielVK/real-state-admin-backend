@@ -8,10 +8,12 @@ import type { ChangedCharacteristic } from '../events/property-characteristics-u
 import { PropertyCharacteristicsUpdatedEvent } from '../events/property-characteristics-updated.event';
 import { PropertyCreatedEvent } from '../events/property-created.event';
 import { PropertyDeletedEvent } from '../events/property-deleted.event';
+import { PropertyFeaturesUpdatedEvent } from '../events/property-features-updated.event';
 import { PropertyStatusChangedEvent } from '../events/property-status-changed.event';
 import type { PropertyAddress } from '../value-objects/property-address.value-object';
 import { PropertyCharacteristicValue } from '../value-objects/property-characteristic.value-object';
-import type { PropertyFeatures } from '../value-objects/property-features.value-object';
+import type { EditPropertyFeaturesInput } from '../value-objects/property-features.value-object';
+import { PropertyFeatures } from '../value-objects/property-features.value-object';
 import { PropertyId } from '../value-objects/property-id.value-object';
 
 export interface PropertyCreateInput {
@@ -235,23 +237,15 @@ export class Property extends AggregateRoot<PropertyId> {
   }
 
   /**
-   * After the repository has upserted each tag, the resolved numeric ids need to be
-   * reflected back into the aggregate's VOs so the response shape exposes them.
-   * Order is preserved: position `i` in `resolvedIds` maps to position `i` in
-   * `this._state.characteristics`.
+   * After the repository has upserted each tag, the resolved numeric ids need
+   * to be reflected back into the aggregate's VOs so the response shape
+   * exposes them. Delegates to {@link PropertyCharacteristicValue.applyResolvedIds}.
    */
   syncCharacteristicIds(resolvedIds: number[]): void {
-    for (let i = 0; i < resolvedIds.length && i < this._state.characteristics.length; i++) {
-      const vo = this._state.characteristics[i];
-      const id = resolvedIds[i];
-      if (!vo || id === undefined) continue;
-      this._state.characteristics[i] = PropertyCharacteristicValue.fromPersistence(
-        id,
-        vo.name,
-        vo.slug,
-        vo.category,
-      );
-    }
+    this._state.characteristics = PropertyCharacteristicValue.applyResolvedIds(
+      this._state.characteristics,
+      resolvedIds,
+    );
   }
 
   softDelete(): void {
@@ -263,7 +257,10 @@ export class Property extends AggregateRoot<PropertyId> {
 
   updateAddress(address: PropertyAddress): void {
     if (this._state.address.equals(address)) {
-      return;
+      throw new DomainException(
+        'La direccion nueva es igual a la anterior',
+        ErrorCode.VALIDATION_ERROR,
+      );
     }
     const oldAddress = this._state.address;
     const changedAt = new Date();
@@ -300,6 +297,62 @@ export class Property extends AggregateRoot<PropertyId> {
     this._state.updatedAt = changedAt;
     this.addDomainEvent(
       new PropertyStatusChangedEvent(this.id.toValue(), oldStatus, newStatus, changedAt),
+    );
+  }
+
+  /**
+   * Atomically apply a partial update to the property's features. The merge
+   * semantics distinguish `undefined` (field omitted → keep existing) from
+   * `null` (field explicitly cleared → set to null) and from a concrete value
+   * (field replaced). The first-creation path (current features is `null`)
+   * requires the three mandatory fields (totalAreaM2, coveredAreaM2,
+   * conservationState) to be provided — non-mandatory fields default to `null`.
+   *
+   * Emits `PropertyFeaturesUpdatedEvent` with the old snapshot (`null` on
+   * first creation) and the new props snapshot. If the resulting features
+   * are structurally equal to the current ones, the call is a no-op: no
+   * event, no `updatedAt` bump.
+   */
+  updateFeatures(partial: EditPropertyFeaturesInput): void {
+    const current = this._state.features;
+
+    if (current === null) {
+      // First-creation path: require mandatory fields to be present.
+      if (partial.totalAreaM2 === undefined) {
+        throw new DomainException(
+          'El area total, en metros cuadrados, es obligatorio al crear las características',
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+      if (partial.coveredAreaM2 === undefined) {
+        throw new DomainException(
+          'El area cubierta, en metros cuadrados, es obligatorio al crear las características',
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+      if (partial.conservationState === undefined || partial.conservationState === null) {
+        throw new DomainException(
+          'El estado de conservacion es obligatorio al crear las características',
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+    }
+
+    const next = PropertyFeatures.merge(current, partial);
+
+    // Equality guard: if no fields actually changed, no-op.
+    if (current?.equals(next)) {
+      return;
+    }
+
+    const oldSnapshot = current?.toPrimitives() ?? null;
+    const newSnapshot = next.toPrimitives();
+    const changedAt = new Date();
+    this._state.features = next;
+    this._state.updatedAt = changedAt;
+
+    this.addDomainEvent(
+      new PropertyFeaturesUpdatedEvent(this.id.toValue(), oldSnapshot, newSnapshot, changedAt),
     );
   }
 

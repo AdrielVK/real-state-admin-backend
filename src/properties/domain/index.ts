@@ -10,6 +10,7 @@ export {
   PropertyCharacteristicsUpdatedEvent,
   PropertyCreatedEvent,
   PropertyDeletedEvent,
+  PropertyFeaturesUpdatedEvent,
   PropertyStatusChangedEvent,
 } from './events';
 export type { IProfileExistenceService } from './ports/profile-existence.service';
@@ -30,6 +31,7 @@ export {
 } from './value-objects/property-characteristic.value-object';
 export {
   type CreatePropertyFeaturesInput,
+  type EditPropertyFeaturesInput,
   PropertyFeatures,
   type PropertyFeaturesProps,
 } from './value-objects/property-features.value-object';

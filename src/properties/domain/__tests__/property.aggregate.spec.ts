@@ -701,6 +701,267 @@ describe('Property aggregate', () => {
     });
   });
 
+  describe('updateFeatures()', () => {
+    function makePropertyWithFeatures(): Property {
+      return Property.create({
+        internalCode: 'PROP-FEAT',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        features: makeValidFeatures(),
+      });
+    }
+
+    function makePropertyWithoutFeatures(): Property {
+      return Property.reconstitute({
+        id: PropertyId.generate(),
+        internalCode: 'PROP-NULL-FEAT',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        status: PropertyStatus.DISPONIBLE,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: null,
+        characteristics: [],
+        createdByUserId: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      });
+    }
+
+    it('should keep omitted fields and replace provided fields (merge on existing features)', async () => {
+      const property = makePropertyWithFeatures();
+      const originalUpdatedAt = property.updatedAt;
+      const createdEventCount = property.domainEvents.length;
+
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      property.updateFeatures({ bedrooms: 4 });
+
+      // Replaced field
+      expect(property.features!.bedrooms).toBe(4);
+      // Omitted fields preserved
+      expect(property.features!.totalAreaM2).toBe(120);
+      expect(property.features!.coveredAreaM2).toBe(100);
+      expect(property.features!.rooms).toBe(4);
+      expect(property.features!.bathrooms).toBe(2);
+      expect(property.features!.garages).toBe(1);
+      expect(property.features!.floor).toBe(5);
+      expect(property.features!.conservationState).toBe(ConservationState.EXCELENTE);
+      expect(property.features!.ageYears).toBe(10);
+
+      expect(property.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+
+      // Event was emitted
+      const events = property.domainEvents;
+      expect(events).toHaveLength(createdEventCount + 1);
+      const lastEvent = events.at(-1)!;
+      expect(lastEvent.eventName).toBe('property.features-updated');
+    });
+
+    it('should clear fields set to null and replace fields set to a value (mixed merge)', () => {
+      const property = makePropertyWithFeatures();
+
+      property.updateFeatures({ bedrooms: null, bathrooms: 4 });
+
+      expect(property.features!.bedrooms).toBeNull();
+      expect(property.features!.bathrooms).toBe(4);
+      // Omitted fields preserved
+      expect(property.features!.totalAreaM2).toBe(120);
+      expect(property.features!.rooms).toBe(4);
+      expect(property.features!.garages).toBe(1);
+    });
+
+    it('should create a new PropertyFeatures VO when current features is null and mandatory fields are provided', () => {
+      const property = makePropertyWithoutFeatures();
+      const eventsBefore = property.domainEvents.length;
+
+      property.updateFeatures({
+        totalAreaM2: 100,
+        coveredAreaM2: 80,
+        conservationState: ConservationState.BUENO,
+      });
+
+      expect(property.features).not.toBeNull();
+      expect(property.features!.totalAreaM2).toBe(100);
+      expect(property.features!.coveredAreaM2).toBe(80);
+      expect(property.features!.conservationState).toBe(ConservationState.BUENO);
+      // Non-mandatory fields default to null
+      expect(property.features!.rooms).toBeNull();
+      expect(property.features!.bedrooms).toBeNull();
+      expect(property.features!.bathrooms).toBeNull();
+      expect(property.features!.garages).toBeNull();
+      expect(property.features!.floor).toBeNull();
+      expect(property.features!.ageYears).toBeNull();
+
+      // Event was emitted
+      const lastEvent = property.domainEvents.at(-1)!;
+      expect(lastEvent.eventName).toBe('property.features-updated');
+      // oldFeatures is null on first creation
+      expect((lastEvent as unknown as { oldFeatures: unknown }).oldFeatures).toBeNull();
+      expect(property.domainEvents).toHaveLength(eventsBefore + 1);
+    });
+
+    it('should accept non-mandatory fields in the first-creation payload', () => {
+      const property = makePropertyWithoutFeatures();
+
+      property.updateFeatures({
+        totalAreaM2: 100,
+        coveredAreaM2: 80,
+        conservationState: ConservationState.BUENO,
+        bedrooms: 3,
+        rooms: 4,
+        bathrooms: 2,
+        garages: 1,
+        floor: 5,
+        ageYears: 10,
+      });
+
+      expect(property.features!.bedrooms).toBe(3);
+      expect(property.features!.rooms).toBe(4);
+      expect(property.features!.bathrooms).toBe(2);
+      expect(property.features!.garages).toBe(1);
+      expect(property.features!.floor).toBe(5);
+      expect(property.features!.ageYears).toBe(10);
+    });
+
+    it('should throw a DomainException when first-creation omits totalAreaM2', () => {
+      const property = makePropertyWithoutFeatures();
+
+      expect(() => {
+        property.updateFeatures({
+          coveredAreaM2: 80,
+          conservationState: ConservationState.BUENO,
+        });
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException when first-creation omits coveredAreaM2', () => {
+      const property = makePropertyWithoutFeatures();
+
+      expect(() => {
+        property.updateFeatures({
+          totalAreaM2: 100,
+          conservationState: ConservationState.BUENO,
+        });
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException when first-creation omits conservationState', () => {
+      const property = makePropertyWithoutFeatures();
+
+      expect(() => {
+        property.updateFeatures({
+          totalAreaM2: 100,
+          coveredAreaM2: 80,
+        });
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException when first-creation is requested with only non-mandatory fields', () => {
+      const property = makePropertyWithoutFeatures();
+
+      expect(() => {
+        property.updateFeatures({ bedrooms: 3 });
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException on negative totalAreaM2 (existing features)', () => {
+      const property = makePropertyWithFeatures();
+
+      expect(() => {
+        property.updateFeatures({ totalAreaM2: -10 });
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException on invalid conservationState value (existing features)', () => {
+      const property = makePropertyWithFeatures();
+
+      expect(() => {
+        property.updateFeatures({ conservationState: 'invalid' as ConservationState });
+      }).toThrow(DomainException);
+    });
+
+    it('should be a no-op when the merged features are equal to the current ones (idempotent)', () => {
+      const property = makePropertyWithFeatures();
+      const eventsBefore = property.domainEvents.length;
+      const updatedAtBefore = property.updatedAt;
+      const featuresBefore = property.features;
+
+      // Send a payload that, after merge, yields the same PropertyFeatures instance
+      // equal to the current one (same primitives).
+      property.updateFeatures({});
+
+      expect(property.features).toBe(featuresBefore);
+      expect(property.updatedAt).toBe(updatedAtBefore);
+      expect(property.domainEvents).toHaveLength(eventsBefore);
+    });
+
+    it('should emit PropertyFeaturesUpdatedEvent with old and new props snapshots', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-FEAT-EVT',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        status: PropertyStatus.DISPONIBLE,
+        features: new PropertyFeatures({
+          totalAreaM2: 100,
+          coveredAreaM2: 80,
+          rooms: 3,
+          bedrooms: 2,
+          bathrooms: 1,
+          garages: 0,
+          floor: 2,
+          conservationState: ConservationState.BUENO,
+          ageYears: 5,
+        }),
+        ownerProfileId: null,
+        agentProfileId: null,
+        characteristics: [],
+        createdByUserId: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      });
+
+      property.updateFeatures({ bedrooms: 4 });
+
+      const lastEvent = property.domainEvents.at(-1) as unknown as {
+        eventName: string;
+        propertyId: string;
+        oldFeatures: {
+          totalAreaM2: number;
+          coveredAreaM2: number;
+          bedrooms: number;
+        } | null;
+        newFeatures: {
+          totalAreaM2: number;
+          coveredAreaM2: number;
+          bedrooms: number;
+        };
+        changedAt: Date;
+      };
+
+      expect(lastEvent.eventName).toBe('property.features-updated');
+      expect(lastEvent.propertyId).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(lastEvent.oldFeatures).toEqual({
+        totalAreaM2: 100,
+        coveredAreaM2: 80,
+        rooms: 3,
+        bedrooms: 2,
+        bathrooms: 1,
+        garages: 0,
+        floor: 2,
+        conservationState: ConservationState.BUENO,
+        ageYears: 5,
+      });
+      expect(lastEvent.newFeatures.bedrooms).toBe(4);
+      expect(lastEvent.newFeatures.totalAreaM2).toBe(100);
+      expect(lastEvent.newFeatures.coveredAreaM2).toBe(80);
+      expect(lastEvent.changedAt).toBeInstanceOf(Date);
+    });
+  });
+
   describe('toPrimitives()', () => {
     it('should expose all aggregate fields', () => {
       const address = makeValidAddress();

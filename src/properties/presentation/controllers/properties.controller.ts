@@ -38,12 +38,17 @@ import {
   EditPropertyCharacteristicsUseCase,
 } from '../../application/commands/edit-property-characteristics.use-case';
 import {
+  EditPropertyFeaturesCommand,
+  EditPropertyFeaturesUseCase,
+} from '../../application/commands/edit-property-features.use-case';
+import {
   EditPropertyStatusCommand,
   EditPropertyStatusUseCase,
 } from '../../application/commands/edit-property-status.use-case';
 import { CreatePropertyDto } from '../../application/dto/create-property.dto';
 import { EditPropertyAddressDto } from '../../application/dto/edit-property-address.dto';
 import { EditPropertyCharacteristicsDto } from '../../application/dto/edit-property-characteristics.dto';
+import { EditPropertyFeaturesDto } from '../../application/dto/edit-property-features.dto';
 import { EditPropertyStatusDto } from '../../application/dto/edit-property-status.dto';
 import {
   GetPropertyByIdQuery,
@@ -189,6 +194,7 @@ export class PropertiesController {
     private readonly deletePropertyUseCase: DeletePropertyUseCase,
     private readonly editPropertyAddressUseCase: EditPropertyAddressUseCase,
     private readonly editPropertyCharacteristicsUseCase: EditPropertyCharacteristicsUseCase,
+    private readonly editPropertyFeaturesUseCase: EditPropertyFeaturesUseCase,
     private readonly editPropertyStatusUseCase: EditPropertyStatusUseCase,
     private readonly listAllPropertiesUseCase: ListAllPropertiesUseCase,
     private readonly listMyPropertiesUseCase: ListMyPropertiesUseCase,
@@ -273,6 +279,21 @@ export class PropertiesController {
       new EditPropertyCharacteristicsCommand(id, dto),
     );
     return { message: 'Características actualizadas con éxito', data: mapProperty(property) };
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Patch(':id/features')
+  async editFeatures(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EditPropertyFeaturesDto,
+  ): Promise<{ message: string; data: PropertyResponse }> {
+    const property = await this.editPropertyFeaturesUseCase.execute(
+      new EditPropertyFeaturesCommand(id, dto),
+    );
+    return {
+      message: 'Características físicas actualizadas con éxito',
+      data: mapProperty(property),
+    };
   }
 
   @Roles(UserRole.ADMIN, UserRole.AGENT, UserRole.ADMINISTRATIVE)
