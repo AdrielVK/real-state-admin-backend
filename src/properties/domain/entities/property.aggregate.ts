@@ -257,7 +257,10 @@ export class Property extends AggregateRoot<PropertyId> {
 
   updateAddress(address: PropertyAddress): void {
     if (this._state.address.equals(address)) {
-      return;
+      throw new DomainException(
+        'La direccion nueva es igual a la anterior',
+        ErrorCode.VALIDATION_ERROR,
+      );
     }
     const oldAddress = this._state.address;
     const changedAt = new Date();
