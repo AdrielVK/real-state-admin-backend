@@ -429,6 +429,99 @@ describe('Property aggregate', () => {
     });
   });
 
+  describe('updateStatus()', () => {
+    function makePropertyForStatusUpdate(): Property {
+      return Property.create({
+        internalCode: 'PROP-STATUS',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        features: makeValidFeatures(),
+      });
+    }
+
+    it('should replace the status, bump updatedAt, and emit PropertyStatusChangedEvent with old/new snapshots', async () => {
+      const property = makePropertyForStatusUpdate();
+      const originalStatus = property.status;
+      const createdEventCount = property.domainEvents.length;
+      const originalUpdatedAt = property.updatedAt;
+
+      // Tiny delay so updatedAt is observably later than the original timestamp.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      property.updateStatus(PropertyStatus.VENDIDA);
+
+      // Status is replaced
+      expect(property.status).toBe(PropertyStatus.VENDIDA);
+      expect(property.status).not.toBe(originalStatus);
+
+      // updatedAt is advanced
+      expect(property.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+
+      // Event was emitted with old and new snapshots
+      const events = property.domainEvents;
+      expect(events).toHaveLength(createdEventCount + 1);
+      const lastEvent = events.at(-1)!;
+      expect(lastEvent.eventName).toBe('property.status-changed');
+      expect(lastEvent).toMatchObject({
+        propertyId: property.id.toValue(),
+        oldStatus: PropertyStatus.DISPONIBLE,
+        newStatus: PropertyStatus.VENDIDA,
+      });
+      expect((lastEvent as { changedAt: Date }).changedAt).toBeInstanceOf(Date);
+    });
+
+    it('should throw a DomainException when the new status equals the current one', () => {
+      const property = makePropertyForStatusUpdate();
+      expect(property.status).toBe(PropertyStatus.DISPONIBLE);
+
+      expect(() => {
+        property.updateStatus(PropertyStatus.DISPONIBLE);
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException when the status value is not a valid PropertyStatus', () => {
+      const property = makePropertyForStatusUpdate();
+
+      expect(() => {
+        property.updateStatus('estado_imposible' as PropertyStatus);
+      }).toThrow(DomainException);
+    });
+
+    it('should emit PropertyStatusChangedEvent carrying propertyId, oldStatus, newStatus, and changedAt', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-STATUS-PAYLOAD',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        status: PropertyStatus.RESERVADA,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: null,
+        characteristics: [],
+        createdByUserId: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      });
+
+      property.updateStatus(PropertyStatus.ALQUILADA);
+
+      const lastEvent = property.domainEvents.at(-1)! as {
+        eventName: string;
+        propertyId: string;
+        oldStatus: PropertyStatus;
+        newStatus: PropertyStatus;
+        changedAt: Date;
+      };
+      expect(lastEvent.eventName).toBe('property.status-changed');
+      expect(lastEvent.propertyId).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(lastEvent.oldStatus).toBe(PropertyStatus.RESERVADA);
+      expect(lastEvent.newStatus).toBe(PropertyStatus.ALQUILADA);
+      expect(lastEvent.changedAt).toBeInstanceOf(Date);
+      expect(property.status).toBe(PropertyStatus.ALQUILADA);
+    });
+  });
+
   describe('toPrimitives()', () => {
     it('should expose all aggregate fields', () => {
       const address = makeValidAddress();

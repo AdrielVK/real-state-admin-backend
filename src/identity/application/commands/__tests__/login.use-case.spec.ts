@@ -11,6 +11,7 @@ import {
   PlainPassword,
   RefreshToken,
   User,
+  UserStatus,
 } from '@identity/domain';
 
 import { LoginCommand, type LoginResult, LoginUseCase } from '../login.use-case';
@@ -33,6 +34,7 @@ function makeUser(
     'John',
     'Doe',
     overrides.role ?? UserRole.ADMIN,
+    UserStatus.ACTIVE,
     new Date('2024-01-01'),
     new Date('2024-01-01'),
   );

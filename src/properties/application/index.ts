@@ -6,12 +6,17 @@ export {
   EditPropertyAddressUseCase,
 } from './commands/edit-property-address.use-case';
 export {
+  EditPropertyStatusCommand,
+  EditPropertyStatusUseCase,
+} from './commands/edit-property-status.use-case';
+export {
   CreatePropertyAddressDto,
   CreatePropertyCharacteristicDto,
   CreatePropertyDto,
   CreatePropertyFeaturesDto,
 } from './dto/create-property.dto';
 export { EditPropertyAddressDto } from './dto/edit-property-address.dto';
+export { EditPropertyStatusDto } from './dto/edit-property-status.dto';
 export {
   GetPropertyByIdQuery,
   GetPropertyByIdUseCase,

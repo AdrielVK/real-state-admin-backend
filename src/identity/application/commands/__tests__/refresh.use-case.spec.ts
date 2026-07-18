@@ -10,6 +10,7 @@ import {
   RefreshToken,
   RefreshTokenId,
   User,
+  UserStatus,
 } from '@identity/domain';
 
 import { RefreshCommand, RefreshUseCase } from '../refresh.use-case';
@@ -44,6 +45,7 @@ function makeUser(): User {
     'John',
     'Doe',
     UserRole.ADMIN,
+    UserStatus.ACTIVE,
     new Date('2024-01-01'),
     new Date('2024-01-01'),
   );

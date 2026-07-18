@@ -6,6 +6,7 @@ import type { PropertyType } from '../enums/property-type.enum';
 import { PropertyAddressChangedEvent } from '../events/property-address-changed.event';
 import { PropertyCreatedEvent } from '../events/property-created.event';
 import { PropertyDeletedEvent } from '../events/property-deleted.event';
+import { PropertyStatusChangedEvent } from '../events/property-status-changed.event';
 import type { PropertyAddress } from '../value-objects/property-address.value-object';
 import { PropertyCharacteristicValue } from '../value-objects/property-characteristic.value-object';
 import type { PropertyFeatures } from '../value-objects/property-features.value-object';
@@ -191,6 +192,30 @@ export class Property extends AggregateRoot<PropertyId> {
         address.toPrimitives(),
         changedAt,
       ),
+    );
+  }
+
+  updateStatus(newStatus: PropertyStatus): void {
+    if (!Object.values(PropertyStatus).includes(newStatus)) {
+      throw new DomainException(
+        `"${newStatus}" no es un estado de propiedad válido`,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    if (this._state.status === newStatus) {
+      throw new DomainException(
+        `La propiedad ya se encuentra en estado "${newStatus}"`,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    const oldStatus = this._state.status;
+    const changedAt = new Date();
+    this._state.status = newStatus;
+    this._state.updatedAt = changedAt;
+    this.addDomainEvent(
+      new PropertyStatusChangedEvent(this.id.toValue(), oldStatus, newStatus, changedAt),
     );
   }
 

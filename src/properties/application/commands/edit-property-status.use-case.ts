@@ -12,23 +12,23 @@ import {
   type IPropertyRepository,
   IPropertyRepositoryToken,
   Property,
-  PropertyAddress,
   PropertyId,
+  PropertyStatus,
 } from '../../domain';
-import type { EditPropertyAddressDto } from '../dto/edit-property-address.dto';
+import type { EditPropertyStatusDto } from '../dto/edit-property-status.dto';
 
-export class EditPropertyAddressCommand implements ICommand<Property> {
+export class EditPropertyStatusCommand implements ICommand<Property> {
   readonly _resultType?: Property;
 
   constructor(
     readonly propertyId: string,
-    readonly dto: EditPropertyAddressDto,
+    readonly dto: EditPropertyStatusDto,
   ) {}
 }
 
 @Injectable()
-export class EditPropertyAddressUseCase implements ICommandHandler<
-  EditPropertyAddressCommand,
+export class EditPropertyStatusUseCase implements ICommandHandler<
+  EditPropertyStatusCommand,
   Property
 > {
   constructor(
@@ -36,19 +36,18 @@ export class EditPropertyAddressUseCase implements ICommandHandler<
     @Inject('IDomainEventPublisher') private readonly eventPublisher: IDomainEventPublisher,
   ) {}
 
-  async execute(command: EditPropertyAddressCommand): Promise<Property> {
+  async execute(command: EditPropertyStatusCommand): Promise<Property> {
     const property = await this.propertyRepository.findById(new PropertyId(command.propertyId));
 
     if (!property) {
       throw new AppException(ErrorCode.NOT_FOUND, `Propiedad no encontrada`);
     }
 
-    const newAddress = PropertyAddress.fromCreateDto(command.dto);
-    property.updateAddress(newAddress);
-
-    await this.propertyRepository.save(property);
+    property.updateStatus(command.dto.status as PropertyStatus);
 
     const events = property.pullDomainEvents();
+
+    await this.propertyRepository.save(property);
     await Promise.all(events.map(async (event) => this.eventPublisher.publish(event)));
 
     return property;

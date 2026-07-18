@@ -5,6 +5,7 @@ import { DomainEventModule } from '@shared/infrastructure';
 import { CreatePropertyUseCase } from './application/commands/create-property.use-case';
 import { DeletePropertyUseCase } from './application/commands/delete-property.use-case';
 import { EditPropertyAddressUseCase } from './application/commands/edit-property-address.use-case';
+import { EditPropertyStatusUseCase } from './application/commands/edit-property-status.use-case';
 import { GetPropertyByIdUseCase } from './application/queries/get-property-by-id.use-case';
 import { ListAllPropertiesUseCase } from './application/queries/list-all-properties.use-case';
 import { ListMyPropertiesUseCase } from './application/queries/list-my-properties.use-case';
@@ -27,6 +28,7 @@ import { PropertiesController } from './presentation/controllers/properties.cont
     CreatePropertyUseCase,
     DeletePropertyUseCase,
     EditPropertyAddressUseCase,
+    EditPropertyStatusUseCase,
     GetPropertyByIdUseCase,
     ListAllPropertiesUseCase,
     ListMyPropertiesUseCase,
