@@ -429,6 +429,168 @@ describe('Property aggregate', () => {
     });
   });
 
+  describe('updateAgentProfileId()', () => {
+    function makePropertyForAgentUpdate(): Property {
+      return Property.create({
+        internalCode: 'PROP-AGENT',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        features: makeValidFeatures(),
+      });
+    }
+
+    it('should assign an agent when current is null: bumps updatedAt and emits PropertyAgentChangedEvent', async () => {
+      const property = makePropertyForAgentUpdate();
+      expect(property.agentProfileId).toBeNull();
+      const originalUpdatedAt = property.updatedAt;
+      const createdEventCount = property.domainEvents.length;
+
+      // Tiny delay so updatedAt is observably later than the original timestamp.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      property.updateAgentProfileId('agent-uuid-1');
+
+      expect(property.agentProfileId).toBe('agent-uuid-1');
+      expect(property.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+
+      const events = property.domainEvents;
+      expect(events).toHaveLength(createdEventCount + 1);
+      const lastEvent = events.at(-1)!;
+      expect(lastEvent.eventName).toBe('property.agent-changed');
+    });
+
+    it('should remove an agent when set to null: bumps updatedAt and emits PropertyAgentChangedEvent', async () => {
+      const property = makePropertyForAgentUpdate();
+      property.updateAgentProfileId('agent-uuid-1');
+      const updatedAtAfterAssign = property.updatedAt;
+      const eventsAfterAssign = property.domainEvents.length;
+
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      property.updateAgentProfileId(null);
+
+      expect(property.agentProfileId).toBeNull();
+      expect(property.updatedAt.getTime()).toBeGreaterThan(updatedAtAfterAssign.getTime());
+
+      const events = property.domainEvents;
+      expect(events).toHaveLength(eventsAfterAssign + 1);
+      const lastEvent = events.at(-1)!;
+      expect(lastEvent.eventName).toBe('property.agent-changed');
+    });
+
+    it('should swap agents: old and new ids are reflected in the event payload', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-AGENT-SWAP',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        status: PropertyStatus.DISPONIBLE,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: 'agent-uuid-a',
+        characteristics: [],
+        createdByUserId: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      });
+
+      property.updateAgentProfileId('agent-uuid-b');
+
+      expect(property.agentProfileId).toBe('agent-uuid-b');
+      const lastEvent = property.domainEvents.at(-1) as {
+        eventName: string;
+        propertyId: string;
+        oldAgentId: string | null;
+        newAgentId: string | null;
+        changedAt: Date;
+      };
+      expect(lastEvent.eventName).toBe('property.agent-changed');
+      expect(lastEvent.propertyId).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(lastEvent.oldAgentId).toBe('agent-uuid-a');
+      expect(lastEvent.newAgentId).toBe('agent-uuid-b');
+      expect(lastEvent.changedAt).toBeInstanceOf(Date);
+    });
+
+    it('should throw a DomainException when the new agent id equals the current one (same UUID)', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-AGENT-SAME',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        status: PropertyStatus.DISPONIBLE,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: 'agent-uuid-x',
+        characteristics: [],
+        createdByUserId: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      });
+
+      const eventsBefore = property.domainEvents.length;
+      const updatedAtBefore = property.updatedAt;
+
+      expect(() => {
+        property.updateAgentProfileId('agent-uuid-x');
+      }).toThrow(DomainException);
+
+      expect(property.agentProfileId).toBe('agent-uuid-x');
+      expect(property.updatedAt).toBe(updatedAtBefore);
+      expect(property.domainEvents).toHaveLength(eventsBefore);
+    });
+
+    it('should throw a DomainException when the new agent id is null and current is also null', () => {
+      const property = makePropertyForAgentUpdate();
+      expect(property.agentProfileId).toBeNull();
+
+      const eventsBefore = property.domainEvents.length;
+      const updatedAtBefore = property.updatedAt;
+
+      expect(() => {
+        property.updateAgentProfileId(null);
+      }).toThrow(DomainException);
+
+      expect(property.agentProfileId).toBeNull();
+      expect(property.updatedAt).toBe(updatedAtBefore);
+      expect(property.domainEvents).toHaveLength(eventsBefore);
+    });
+
+    it('should emit PropertyAgentChangedEvent with propertyId, oldAgentId, newAgentId and changedAt on assign', () => {
+      const property = Property.reconstitute({
+        id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+        internalCode: 'PROP-AGENT-PAYLOAD',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        status: PropertyStatus.DISPONIBLE,
+        features: null,
+        ownerProfileId: null,
+        agentProfileId: null,
+        characteristics: [],
+        createdByUserId: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      });
+
+      property.updateAgentProfileId('agent-uuid-new');
+
+      const lastEvent = property.domainEvents.at(-1) as {
+        eventName: string;
+        propertyId: string;
+        oldAgentId: string | null;
+        newAgentId: string | null;
+        changedAt: Date;
+      };
+      expect(lastEvent.eventName).toBe('property.agent-changed');
+      expect(lastEvent.propertyId).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(lastEvent.oldAgentId).toBeNull();
+      expect(lastEvent.newAgentId).toBe('agent-uuid-new');
+      expect(lastEvent.changedAt).toBeInstanceOf(Date);
+    });
+  });
+
   describe('updateStatus()', () => {
     function makePropertyForStatusUpdate(): Property {
       return Property.create({

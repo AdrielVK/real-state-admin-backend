@@ -7,6 +7,7 @@ export { PropertyType } from './enums/property-type.enum';
 export {
   type ChangedCharacteristic,
   PropertyAddressChangedEvent,
+  PropertyAgentChangedEvent,
   PropertyCharacteristicsUpdatedEvent,
   PropertyCreatedEvent,
   PropertyDeletedEvent,

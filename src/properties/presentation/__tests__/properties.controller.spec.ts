@@ -3,6 +3,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { CreatePropertyUseCase } from '../../application/commands/create-property.use-case';
 import { DeletePropertyUseCase } from '../../application/commands/delete-property.use-case';
 import { EditPropertyAddressUseCase } from '../../application/commands/edit-property-address.use-case';
+import { EditPropertyAgentUseCase } from '../../application/commands/edit-property-agent.use-case';
 import { EditPropertyCharacteristicsUseCase } from '../../application/commands/edit-property-characteristics.use-case';
 import { EditPropertyFeaturesUseCase } from '../../application/commands/edit-property-features.use-case';
 import { EditPropertyStatusUseCase } from '../../application/commands/edit-property-status.use-case';
@@ -80,6 +81,7 @@ describe('PropertiesController', () => {
   let listAllUseCase: jest.Mocked<Pick<ListAllPropertiesUseCase, 'execute'>>;
   let listMyUseCase: jest.Mocked<Pick<ListMyPropertiesUseCase, 'execute'>>;
   let editAddressUseCase: jest.Mocked<Pick<EditPropertyAddressUseCase, 'execute'>>;
+  let editAgentUseCase: jest.Mocked<Pick<EditPropertyAgentUseCase, 'execute'>>;
   let editStatusUseCase: jest.Mocked<Pick<EditPropertyStatusUseCase, 'execute'>>;
   let editCharacteristicsUseCase: jest.Mocked<Pick<EditPropertyCharacteristicsUseCase, 'execute'>>;
   let editFeaturesUseCase: jest.Mocked<Pick<EditPropertyFeaturesUseCase, 'execute'>>;
@@ -92,6 +94,9 @@ describe('PropertiesController', () => {
     listMyUseCase = { execute: jest.fn() } as jest.Mocked<Pick<ListMyPropertiesUseCase, 'execute'>>;
     editAddressUseCase = { execute: jest.fn() } as jest.Mocked<
       Pick<EditPropertyAddressUseCase, 'execute'>
+    >;
+    editAgentUseCase = { execute: jest.fn() } as jest.Mocked<
+      Pick<EditPropertyAgentUseCase, 'execute'>
     >;
     editStatusUseCase = { execute: jest.fn() } as jest.Mocked<
       Pick<EditPropertyStatusUseCase, 'execute'>
@@ -108,6 +113,7 @@ describe('PropertiesController', () => {
         { provide: CreatePropertyUseCase, useValue: useCase },
         { provide: DeletePropertyUseCase, useValue: { execute: jest.fn() } },
         { provide: EditPropertyAddressUseCase, useValue: editAddressUseCase },
+        { provide: EditPropertyAgentUseCase, useValue: editAgentUseCase },
         {
           provide: EditPropertyCharacteristicsUseCase,
           useValue: editCharacteristicsUseCase,
@@ -442,5 +448,56 @@ describe('PropertiesController', () => {
         bedrooms: 3,
       } as never),
     ).rejects.toThrow(/obligatorio/i);
+  });
+
+  it('should update a property agent via PATCH :id/agent and return the updated property', async () => {
+    const property = makeProperty('user-uuid-1');
+    // Simulate the use case having applied the assignment: the property now
+    // carries the new agent id.
+    property.updateAgentProfileId('agent-uuid-new');
+    editAgentUseCase.execute.mockResolvedValue(property);
+
+    const result = await controller.editAgent('550e8400-e29b-41d4-a716-446655440000', {
+      agentProfileId: 'agent-uuid-new',
+    });
+
+    expect(editAgentUseCase.execute).toHaveBeenCalledTimes(1);
+    const callArg = editAgentUseCase.execute.mock.calls[0]?.[0] as {
+      propertyId: string;
+      dto: { agentProfileId: string };
+    };
+    expect(callArg.propertyId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(callArg.dto.agentProfileId).toBe('agent-uuid-new');
+    expect(result.message).toBe('Agente actualizado con éxito');
+    expect(result.data.id).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(result.data.agentProfileId).toBe('agent-uuid-new');
+  });
+
+  it('should remove the agent when PATCH :id/agent receives agentProfileId: null', async () => {
+    const property = makeProperty('user-uuid-1');
+    editAgentUseCase.execute.mockResolvedValue(property);
+
+    const result = await controller.editAgent('550e8400-e29b-41d4-a716-446655440000', {
+      agentProfileId: null,
+    });
+
+    expect(editAgentUseCase.execute).toHaveBeenCalledTimes(1);
+    const callArg = editAgentUseCase.execute.mock.calls[0]?.[0] as {
+      propertyId: string;
+      dto: { agentProfileId: string | null };
+    };
+    expect(callArg.dto.agentProfileId).toBeNull();
+    expect(result.message).toBe('Agente actualizado con éxito');
+    expect(result.data.agentProfileId).toBeNull();
+  });
+
+  it('should propagate NOT_FOUND from the use case when the property does not exist (agent)', async () => {
+    editAgentUseCase.execute.mockRejectedValue(new Error('Property with id "missing" not found'));
+
+    await expect(
+      controller.editAgent('00000000-0000-4000-8000-000000000000', {
+        agentProfileId: 'agent-uuid-1',
+      }),
+    ).rejects.toThrow(/Property with id/);
   });
 });

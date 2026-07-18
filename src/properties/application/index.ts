@@ -6,6 +6,10 @@ export {
   EditPropertyAddressUseCase,
 } from './commands/edit-property-address.use-case';
 export {
+  EditPropertyAgentCommand,
+  EditPropertyAgentUseCase,
+} from './commands/edit-property-agent.use-case';
+export {
   EditPropertyCharacteristicsCommand,
   EditPropertyCharacteristicsUseCase,
 } from './commands/edit-property-characteristics.use-case';
@@ -24,6 +28,7 @@ export {
   CreatePropertyFeaturesDto,
 } from './dto/create-property.dto';
 export { EditPropertyAddressDto } from './dto/edit-property-address.dto';
+export { EditPropertyAgentDto } from './dto/edit-property-agent.dto';
 export {
   type EditPropertyCharacteristicsDto,
   EditPropertyCharacteristicsDto as EditPropertyCharacteristicsDtoClass,

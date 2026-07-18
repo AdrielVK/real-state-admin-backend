@@ -34,6 +34,10 @@ import {
   EditPropertyAddressUseCase,
 } from '../../application/commands/edit-property-address.use-case';
 import {
+  EditPropertyAgentCommand,
+  EditPropertyAgentUseCase,
+} from '../../application/commands/edit-property-agent.use-case';
+import {
   EditPropertyCharacteristicsCommand,
   EditPropertyCharacteristicsUseCase,
 } from '../../application/commands/edit-property-characteristics.use-case';
@@ -47,6 +51,7 @@ import {
 } from '../../application/commands/edit-property-status.use-case';
 import { CreatePropertyDto } from '../../application/dto/create-property.dto';
 import { EditPropertyAddressDto } from '../../application/dto/edit-property-address.dto';
+import { EditPropertyAgentDto } from '../../application/dto/edit-property-agent.dto';
 import { EditPropertyCharacteristicsDto } from '../../application/dto/edit-property-characteristics.dto';
 import { EditPropertyFeaturesDto } from '../../application/dto/edit-property-features.dto';
 import { EditPropertyStatusDto } from '../../application/dto/edit-property-status.dto';
@@ -193,6 +198,7 @@ export class PropertiesController {
     private readonly getPropertyByIdUseCase: GetPropertyByIdUseCase,
     private readonly deletePropertyUseCase: DeletePropertyUseCase,
     private readonly editPropertyAddressUseCase: EditPropertyAddressUseCase,
+    private readonly editPropertyAgentUseCase: EditPropertyAgentUseCase,
     private readonly editPropertyCharacteristicsUseCase: EditPropertyCharacteristicsUseCase,
     private readonly editPropertyFeaturesUseCase: EditPropertyFeaturesUseCase,
     private readonly editPropertyStatusUseCase: EditPropertyStatusUseCase,
@@ -306,5 +312,17 @@ export class PropertiesController {
       new EditPropertyStatusCommand(id, dto),
     );
     return { message: 'Estado actualizado con éxito', data: mapProperty(property) };
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.AGENT, UserRole.ADMINISTRATIVE)
+  @Patch(':id/agent')
+  async editAgent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EditPropertyAgentDto,
+  ): Promise<{ message: string; data: PropertyResponse }> {
+    const property = await this.editPropertyAgentUseCase.execute(
+      new EditPropertyAgentCommand(id, dto),
+    );
+    return { message: 'Agente actualizado con éxito', data: mapProperty(property) };
   }
 }

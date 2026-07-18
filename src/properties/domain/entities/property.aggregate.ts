@@ -4,6 +4,7 @@ import type { CharacteristicCategory } from '../enums/characteristic-category.en
 import { PropertyStatus } from '../enums/property-status.enum';
 import type { PropertyType } from '../enums/property-type.enum';
 import { PropertyAddressChangedEvent } from '../events/property-address-changed.event';
+import { PropertyAgentChangedEvent } from '../events/property-agent-changed.event';
 import type { ChangedCharacteristic } from '../events/property-characteristics-updated.event';
 import { PropertyCharacteristicsUpdatedEvent } from '../events/property-characteristics-updated.event';
 import { PropertyCreatedEvent } from '../events/property-created.event';
@@ -236,11 +237,6 @@ export class Property extends AggregateRoot<PropertyId> {
     );
   }
 
-  /**
-   * After the repository has upserted each tag, the resolved numeric ids need
-   * to be reflected back into the aggregate's VOs so the response shape
-   * exposes them. Delegates to {@link PropertyCharacteristicValue.applyResolvedIds}.
-   */
   syncCharacteristicIds(resolvedIds: number[]): void {
     this._state.characteristics = PropertyCharacteristicValue.applyResolvedIds(
       this._state.characteristics,
@@ -297,6 +293,35 @@ export class Property extends AggregateRoot<PropertyId> {
     this._state.updatedAt = changedAt;
     this.addDomainEvent(
       new PropertyStatusChangedEvent(this.id.toValue(), oldStatus, newStatus, changedAt),
+    );
+  }
+
+  /**
+   * Assign or remove the property's agent. Passing a non-null UUID assigns the
+   * agent; passing `null` removes the current agent. Throws `DomainException`
+   * when the supplied id equals the current `agentProfileId` (same-value is an
+   * explicit error, not a silent no-op). Bumps `updatedAt` and emits
+   * `PropertyAgentChangedEvent` with the old and new ids.
+   *
+   * Profile existence is NOT validated here — the application use case is
+   * responsible for that check (mirrors the create-property flow).
+   */
+  updateAgentProfileId(newAgentId: string | null): void {
+    if (this._state.agentProfileId === newAgentId) {
+      throw new DomainException(
+        newAgentId === null
+          ? 'La propiedad no tiene un agente asignado'
+          : `La propiedad ya tiene asignado al agente "${newAgentId}"`,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    const oldAgentId = this._state.agentProfileId;
+    const changedAt = new Date();
+    this._state.agentProfileId = newAgentId;
+    this._state.updatedAt = changedAt;
+    this.addDomainEvent(
+      new PropertyAgentChangedEvent(this.id.toValue(), oldAgentId, newAgentId, changedAt),
     );
   }
 

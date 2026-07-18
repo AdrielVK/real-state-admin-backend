@@ -1,4 +1,5 @@
 export { PropertyAddressChangedEvent } from './property-address-changed.event';
+export { PropertyAgentChangedEvent } from './property-agent-changed.event';
 export {
   type ChangedCharacteristic,
   PropertyCharacteristicsUpdatedEvent,
