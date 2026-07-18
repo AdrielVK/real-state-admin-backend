@@ -4,6 +4,7 @@ import { CreatePropertyUseCase } from '../../application/commands/create-propert
 import { DeletePropertyUseCase } from '../../application/commands/delete-property.use-case';
 import { EditPropertyAddressUseCase } from '../../application/commands/edit-property-address.use-case';
 import { EditPropertyCharacteristicsUseCase } from '../../application/commands/edit-property-characteristics.use-case';
+import { EditPropertyFeaturesUseCase } from '../../application/commands/edit-property-features.use-case';
 import { EditPropertyStatusUseCase } from '../../application/commands/edit-property-status.use-case';
 import { GetPropertyByIdUseCase } from '../../application/queries/get-property-by-id.use-case';
 import { ListAllPropertiesUseCase } from '../../application/queries/list-all-properties.use-case';
@@ -81,6 +82,7 @@ describe('PropertiesController', () => {
   let editAddressUseCase: jest.Mocked<Pick<EditPropertyAddressUseCase, 'execute'>>;
   let editStatusUseCase: jest.Mocked<Pick<EditPropertyStatusUseCase, 'execute'>>;
   let editCharacteristicsUseCase: jest.Mocked<Pick<EditPropertyCharacteristicsUseCase, 'execute'>>;
+  let editFeaturesUseCase: jest.Mocked<Pick<EditPropertyFeaturesUseCase, 'execute'>>;
 
   beforeEach(async () => {
     useCase = makeMockUseCase();
@@ -97,6 +99,9 @@ describe('PropertiesController', () => {
     editCharacteristicsUseCase = { execute: jest.fn() } as jest.Mocked<
       Pick<EditPropertyCharacteristicsUseCase, 'execute'>
     >;
+    editFeaturesUseCase = { execute: jest.fn() } as jest.Mocked<
+      Pick<EditPropertyFeaturesUseCase, 'execute'>
+    >;
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PropertiesController],
       providers: [
@@ -107,6 +112,7 @@ describe('PropertiesController', () => {
           provide: EditPropertyCharacteristicsUseCase,
           useValue: editCharacteristicsUseCase,
         },
+        { provide: EditPropertyFeaturesUseCase, useValue: editFeaturesUseCase },
         { provide: EditPropertyStatusUseCase, useValue: editStatusUseCase },
         { provide: GetPropertyByIdUseCase, useValue: { execute: jest.fn() } },
         { provide: ListAllPropertiesUseCase, useValue: listAllUseCase },
@@ -392,5 +398,49 @@ describe('PropertiesController', () => {
         remove: [{ slug: 'pool', category: CharacteristicCategory.AMENIDAD }],
       } as never),
     ).rejects.toThrow(/no existe/);
+  });
+
+  it('should update property features via PATCH :id/features and return the updated property', async () => {
+    const property = makeProperty('user-uuid-1');
+    editFeaturesUseCase.execute.mockResolvedValue(property);
+
+    const result = await controller.editFeatures('550e8400-e29b-41d4-a716-446655440000', {
+      bedrooms: 4,
+    } as never);
+
+    expect(editFeaturesUseCase.execute).toHaveBeenCalledTimes(1);
+    const callArg = editFeaturesUseCase.execute.mock.calls[0]?.[0] as {
+      propertyId: string;
+      dto: { bedrooms: number };
+    };
+    expect(callArg.propertyId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(callArg.dto.bedrooms).toBe(4);
+    expect(result.message).toBe('Características físicas actualizadas con éxito');
+    expect(result.data.id).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(result.data.features?.bedrooms).toBe(2);
+  });
+
+  it('should propagate NOT_FOUND from the use case when the property does not exist (features)', async () => {
+    editFeaturesUseCase.execute.mockRejectedValue(
+      new Error('Property with id "missing" not found'),
+    );
+
+    await expect(
+      controller.editFeatures('00000000-0000-4000-8000-000000000000', {
+        bedrooms: 4,
+      } as never),
+    ).rejects.toThrow(/Property with id/);
+  });
+
+  it('should propagate DomainException when the use case rejects first-creation without mandatory fields', async () => {
+    editFeaturesUseCase.execute.mockRejectedValue(
+      new Error('totalAreaM2 es obligatorio al crear las características'),
+    );
+
+    await expect(
+      controller.editFeatures('550e8400-e29b-41d4-a716-446655440000', {
+        bedrooms: 3,
+      } as never),
+    ).rejects.toThrow(/obligatorio/i);
   });
 });

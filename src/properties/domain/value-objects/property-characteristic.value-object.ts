@@ -28,6 +28,22 @@ export class PropertyCharacteristicValue extends ValueObject<PropertyCharacteris
     return new PropertyCharacteristicValue({ id, name, slug, category });
   }
 
+  /**
+   * Apply resolved numeric ids from the repository back into the
+   * characteristic VOs. Order is preserved: position `i` in `resolvedIds`
+   * maps to position `i` in `characteristics`. Returns a new array.
+   */
+  static applyResolvedIds(
+    characteristics: PropertyCharacteristicValue[],
+    resolvedIds: number[],
+  ): PropertyCharacteristicValue[] {
+    return characteristics.map((vo, i) => {
+      const id = resolvedIds[i];
+      if (id === undefined) return vo;
+      return PropertyCharacteristicValue.fromPersistence(id, vo.name, vo.slug, vo.category);
+    });
+  }
+
   get id(): number | null {
     return this.props.id;
   }
