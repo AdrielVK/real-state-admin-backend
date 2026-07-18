@@ -5,7 +5,9 @@ export { ConservationState } from './enums/conservation-state.enum';
 export { PropertyStatus } from './enums/property-status.enum';
 export { PropertyType } from './enums/property-type.enum';
 export {
+  type ChangedCharacteristic,
   PropertyAddressChangedEvent,
+  PropertyCharacteristicsUpdatedEvent,
   PropertyCreatedEvent,
   PropertyDeletedEvent,
   PropertyStatusChangedEvent,

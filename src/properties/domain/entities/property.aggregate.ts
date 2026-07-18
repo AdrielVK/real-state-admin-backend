@@ -4,6 +4,8 @@ import type { CharacteristicCategory } from '../enums/characteristic-category.en
 import { PropertyStatus } from '../enums/property-status.enum';
 import type { PropertyType } from '../enums/property-type.enum';
 import { PropertyAddressChangedEvent } from '../events/property-address-changed.event';
+import type { ChangedCharacteristic } from '../events/property-characteristics-updated.event';
+import { PropertyCharacteristicsUpdatedEvent } from '../events/property-characteristics-updated.event';
 import { PropertyCreatedEvent } from '../events/property-created.event';
 import { PropertyDeletedEvent } from '../events/property-deleted.event';
 import { PropertyStatusChangedEvent } from '../events/property-status-changed.event';
@@ -148,6 +150,88 @@ export class Property extends AggregateRoot<PropertyId> {
     }
     this._state.characteristics = next;
     this._state.updatedAt = new Date();
+  }
+
+  /**
+   * Atomically apply a set of characteristic adds and removes in a single domain
+   * operation. Validates invariants strictly (throws `DomainException` on
+   * duplicates, missing remove targets, or add/remove overlap) and delegates
+   * the actual state mutation to the existing silent `addCharacteristic()` /
+   * `removeCharacteristic()` methods, which become no-ops once our guards have
+   * already filtered the input.
+   *
+   * Emits `PropertyCharacteristicsUpdatedEvent` with the (slug, category) keys
+   * of what was added and removed.
+   */
+  updateCharacteristics(
+    toAdd: PropertyCharacteristicValue[],
+    toRemove: readonly ChangedCharacteristic[],
+  ): void {
+    // 1) No duplicate add entries (same slug+category more than once).
+    const addKeys = new Set<string>();
+    for (const vo of toAdd) {
+      const key = `${vo.slug}:${vo.category}`;
+      if (addKeys.has(key)) {
+        throw new DomainException(
+          `No se permiten características duplicadas para agregar (slug "${vo.slug}", categoría "${vo.category}")`,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+      addKeys.add(key);
+    }
+
+    // 2) No overlap between add and remove for the same slug+category.
+    for (const target of toRemove) {
+      const key = `${target.slug}:${target.category}`;
+      if (addKeys.has(key)) {
+        throw new DomainException(
+          `La característica "${target.slug}" (${target.category}) no puede estar en add y remove simultáneamente`,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+    }
+
+    // 3) Every remove target must currently exist on the property.
+    for (const target of toRemove) {
+      const exists = this._state.characteristics.some(
+        (c) => c.slug === target.slug && c.category === target.category,
+      );
+      if (!exists) {
+        throw new DomainException(
+          `No se puede eliminar la característica "${target.slug}" (${target.category}) porque no existe en la propiedad`,
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+    }
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      throw new DomainException(
+        `No se edita ninguna caracteristica nueva`,
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    // 4) Apply removals first, then additions. The existing methods are
+    // idempotent (silent no-op on duplicate / missing), so this is safe even
+    // if a guard above is later relaxed.
+    for (const target of toRemove) {
+      this.removeCharacteristic(target.slug, target.category);
+    }
+    for (const vo of toAdd) {
+      this.addCharacteristic(vo);
+    }
+
+    const changedAt = new Date();
+    this._state.updatedAt = changedAt;
+
+    this.addDomainEvent(
+      new PropertyCharacteristicsUpdatedEvent(
+        this.id.toValue(),
+        toAdd.map((vo) => ({ slug: vo.slug, category: vo.category })),
+        toRemove.map((t) => ({ slug: t.slug, category: t.category })),
+        changedAt,
+      ),
+    );
   }
 
   /**

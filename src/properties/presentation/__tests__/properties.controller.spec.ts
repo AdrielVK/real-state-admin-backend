@@ -3,6 +3,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { CreatePropertyUseCase } from '../../application/commands/create-property.use-case';
 import { DeletePropertyUseCase } from '../../application/commands/delete-property.use-case';
 import { EditPropertyAddressUseCase } from '../../application/commands/edit-property-address.use-case';
+import { EditPropertyCharacteristicsUseCase } from '../../application/commands/edit-property-characteristics.use-case';
 import { EditPropertyStatusUseCase } from '../../application/commands/edit-property-status.use-case';
 import { GetPropertyByIdUseCase } from '../../application/queries/get-property-by-id.use-case';
 import { ListAllPropertiesUseCase } from '../../application/queries/list-all-properties.use-case';
@@ -79,6 +80,7 @@ describe('PropertiesController', () => {
   let listMyUseCase: jest.Mocked<Pick<ListMyPropertiesUseCase, 'execute'>>;
   let editAddressUseCase: jest.Mocked<Pick<EditPropertyAddressUseCase, 'execute'>>;
   let editStatusUseCase: jest.Mocked<Pick<EditPropertyStatusUseCase, 'execute'>>;
+  let editCharacteristicsUseCase: jest.Mocked<Pick<EditPropertyCharacteristicsUseCase, 'execute'>>;
 
   beforeEach(async () => {
     useCase = makeMockUseCase();
@@ -92,12 +94,19 @@ describe('PropertiesController', () => {
     editStatusUseCase = { execute: jest.fn() } as jest.Mocked<
       Pick<EditPropertyStatusUseCase, 'execute'>
     >;
+    editCharacteristicsUseCase = { execute: jest.fn() } as jest.Mocked<
+      Pick<EditPropertyCharacteristicsUseCase, 'execute'>
+    >;
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PropertiesController],
       providers: [
         { provide: CreatePropertyUseCase, useValue: useCase },
         { provide: DeletePropertyUseCase, useValue: { execute: jest.fn() } },
         { provide: EditPropertyAddressUseCase, useValue: editAddressUseCase },
+        {
+          provide: EditPropertyCharacteristicsUseCase,
+          useValue: editCharacteristicsUseCase,
+        },
         { provide: EditPropertyStatusUseCase, useValue: editStatusUseCase },
         { provide: GetPropertyByIdUseCase, useValue: { execute: jest.fn() } },
         { provide: ListAllPropertiesUseCase, useValue: listAllUseCase },
@@ -276,5 +285,112 @@ describe('PropertiesController', () => {
         status: PropertyStatus.VENDIDA,
       }),
     ).rejects.toThrow(/Property with id/);
+  });
+
+  it('should update property characteristics via PATCH :id/characteristics and return the updated property with resolved ids', async () => {
+    // Start with a property carrying two characteristics (piscina, seguridad) — both
+    // with id=null because they were just created; the use case will sync ids via
+    // the repository. For this controller-level test we simulate that the property
+    // now has both new + removed + retained characteristics with their numeric ids.
+    const property = Property.reconstitute({
+      id: new PropertyId('550e8400-e29b-41d4-a716-446655440000'),
+      internalCode: 'PROP-001',
+      address: new PropertyAddress({
+        addressPlaceId: null,
+        addressFormatted: 'Calle 1, CABA',
+        addressStreet: 'Calle 1',
+        addressStreetNumber: '100',
+        addressNeighborhood: 'Centro',
+        addressCity: 'CABA',
+        addressState: 'Buenos Aires',
+        addressCountry: 'Argentina',
+        addressPostalCode: 'C1000',
+        addressLatitude: -34.6037,
+        addressLongitude: -58.3816,
+      }),
+      propertyType: PropertyType.DEPARTAMENTO,
+      status: PropertyStatus.DISPONIBLE,
+      features: null,
+      ownerProfileId: null,
+      agentProfileId: null,
+      createdByUserId: 'user-uuid-1',
+      characteristics: [
+        PropertyCharacteristicValue.fromPersistence(
+          1,
+          'Seguridad',
+          'seguridad',
+          CharacteristicCategory.SERVICIO,
+        ),
+        PropertyCharacteristicValue.fromPersistence(
+          7,
+          'Solarium',
+          'solarium',
+          CharacteristicCategory.AMENIDAD,
+        ),
+      ],
+      createdAt: new Date('2024-01-01T00:00:00Z'),
+      updatedAt: new Date('2024-01-02T00:00:00Z'),
+      deletedAt: null,
+    });
+    editCharacteristicsUseCase.execute.mockResolvedValue(property);
+
+    const result = await controller.editCharacteristics('550e8400-e29b-41d4-a716-446655440000', {
+      add: [{ name: 'Solarium', slug: 'solarium', category: CharacteristicCategory.AMENIDAD }],
+      remove: [{ slug: 'piscina', category: CharacteristicCategory.AMENIDAD }],
+    } as never);
+
+    expect(editCharacteristicsUseCase.execute).toHaveBeenCalledTimes(1);
+    const callArg = editCharacteristicsUseCase.execute.mock.calls[0]?.[0] as {
+      propertyId: string;
+      dto: { add: unknown; remove: unknown };
+    };
+    expect(callArg.propertyId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(callArg.dto.add).toHaveLength(1);
+    expect(callArg.dto.remove).toHaveLength(1);
+    expect(result.message).toBe('Características actualizadas con éxito');
+    expect(result.data.id).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(result.data.characteristics).toHaveLength(2);
+    expect(result.data.characteristics[0]?.id).toBe(1);
+    expect(result.data.characteristics[1]?.id).toBe(7);
+    expect(result.data.characteristics[1]?.slug).toBe('solarium');
+  });
+
+  it('should propagate NOT_FOUND from the use case when the property does not exist (characteristics)', async () => {
+    editCharacteristicsUseCase.execute.mockRejectedValue(
+      new Error('Property with id "missing" not found'),
+    );
+
+    await expect(
+      controller.editCharacteristics('00000000-0000-4000-8000-000000000000', {
+        add: [{ name: 'Wifi', slug: 'wifi', category: CharacteristicCategory.SERVICIO }],
+      } as never),
+    ).rejects.toThrow(/Property with id/);
+  });
+
+  it('should propagate DomainException when the use case rejects duplicate add entries', async () => {
+    editCharacteristicsUseCase.execute.mockRejectedValue(
+      new Error('No se permiten características duplicadas para agregar'),
+    );
+
+    await expect(
+      controller.editCharacteristics('550e8400-e29b-41d4-a716-446655440000', {
+        add: [
+          { name: 'Wifi A', slug: 'wifi', category: CharacteristicCategory.SERVICIO },
+          { name: 'Wifi B', slug: 'wifi', category: CharacteristicCategory.SERVICIO },
+        ],
+      } as never),
+    ).rejects.toThrow(/duplicadas/);
+  });
+
+  it('should propagate DomainException when the use case rejects a remove target that does not exist', async () => {
+    editCharacteristicsUseCase.execute.mockRejectedValue(
+      new Error('No se puede eliminar la característica "pool" porque no existe en la propiedad'),
+    );
+
+    await expect(
+      controller.editCharacteristics('550e8400-e29b-41d4-a716-446655440000', {
+        remove: [{ slug: 'pool', category: CharacteristicCategory.AMENIDAD }],
+      } as never),
+    ).rejects.toThrow(/no existe/);
   });
 });

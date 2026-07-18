@@ -522,6 +522,185 @@ describe('Property aggregate', () => {
     });
   });
 
+  describe('updateCharacteristics()', () => {
+    function makePropertyWith(existing: Array<[string, CharacteristicCategory]>): Property {
+      const property = Property.create({
+        internalCode: 'PROP-CHARS',
+        address: makeValidAddress(),
+        propertyType: PropertyType.DEPARTAMENTO,
+        features: makeValidFeatures(),
+      });
+      for (const [slug, category] of existing) {
+        property.addCharacteristic(makeCharacteristic(null, slug, category));
+      }
+      return property;
+    }
+
+    it('should add new characteristics and remove existing ones in a single call, then emit PropertyCharacteristicsUpdatedEvent', async () => {
+      const property = makePropertyWith([
+        ['piscina', CharacteristicCategory.AMENIDAD],
+        ['seguridad', CharacteristicCategory.SERVICIO],
+      ]);
+      const initialEventCount = property.domainEvents.length;
+      const originalUpdatedAt = property.updatedAt;
+
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      const toAdd = [
+        PropertyCharacteristicValue.fromCreate(
+          'Solarium',
+          'solarium',
+          CharacteristicCategory.AMENIDAD,
+        ),
+      ];
+      const toRemove = [{ slug: 'piscina', category: CharacteristicCategory.AMENIDAD }];
+
+      property.updateCharacteristics(toAdd, toRemove);
+
+      // piscina was removed, solarium was added, seguridad untouched
+      const slugs = property.characteristics.map((c) => `${c.slug}:${c.category}`);
+      expect(slugs).toEqual(['seguridad:servicio', 'solarium:amenidad']);
+
+      // updatedAt advanced
+      expect(property.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+
+      // Event was emitted
+      const events = property.domainEvents;
+      expect(events).toHaveLength(initialEventCount + 1);
+      const lastEvent = events.at(-1) as {
+        eventName: string;
+        propertyId: string;
+        added: Array<{ slug: string; category: CharacteristicCategory }>;
+        removed: Array<{ slug: string; category: CharacteristicCategory }>;
+        changedAt: Date;
+      };
+      expect(lastEvent.eventName).toBe('property.characteristics-updated');
+      expect(lastEvent.propertyId).toBe(property.id.toValue());
+      expect(lastEvent.added).toEqual([
+        { slug: 'solarium', category: CharacteristicCategory.AMENIDAD },
+      ]);
+      expect(lastEvent.removed).toEqual([
+        { slug: 'piscina', category: CharacteristicCategory.AMENIDAD },
+      ]);
+      expect(lastEvent.changedAt).toBeInstanceOf(Date);
+    });
+
+    it('should throw a DomainException when both add and remove inputs are empty', () => {
+      const property = makePropertyWith([['piscina', CharacteristicCategory.AMENIDAD]]);
+
+      expect(() => {
+        property.updateCharacteristics([], []);
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException when the same slug+category appears twice in toAdd', () => {
+      const property = makePropertyWith([]);
+
+      const duplicate = [
+        PropertyCharacteristicValue.fromCreate('A', 'wifi', CharacteristicCategory.SERVICIO),
+        PropertyCharacteristicValue.fromCreate('B', 'wifi', CharacteristicCategory.SERVICIO),
+      ];
+
+      expect(() => {
+        property.updateCharacteristics(duplicate, []);
+      }).toThrow(DomainException);
+      expect(() => {
+        property.updateCharacteristics(duplicate, []);
+      }).toThrow(/duplicad/i);
+    });
+
+    it('should throw a DomainException when a remove target is not present on the property', () => {
+      const property = makePropertyWith([['piscina', CharacteristicCategory.AMENIDAD]]);
+
+      expect(() => {
+        property.updateCharacteristics(
+          [],
+          [{ slug: 'gimnasio', category: CharacteristicCategory.AMENIDAD }],
+        );
+      }).toThrow(DomainException);
+      expect(() => {
+        property.updateCharacteristics(
+          [],
+          [{ slug: 'gimnasio', category: CharacteristicCategory.AMENIDAD }],
+        );
+      }).toThrow(/no existe/i);
+    });
+
+    it('should throw a DomainException when a remove target uses a category that does not match the property state', () => {
+      // piscina exists under AMENIDAD, not SERVICIO
+      const property = makePropertyWith([['piscina', CharacteristicCategory.AMENIDAD]]);
+
+      expect(() => {
+        property.updateCharacteristics(
+          [],
+          [{ slug: 'piscina', category: CharacteristicCategory.SERVICIO }],
+        );
+      }).toThrow(DomainException);
+    });
+
+    it('should throw a DomainException when the same slug+category appears in both add and remove', () => {
+      const property = makePropertyWith([]);
+
+      expect(() => {
+        property.updateCharacteristics(
+          [PropertyCharacteristicValue.fromCreate('X', 'wifi', CharacteristicCategory.SERVICIO)],
+          [{ slug: 'wifi', category: CharacteristicCategory.SERVICIO }],
+        );
+      }).toThrow(DomainException);
+    });
+
+    it('should treat slug+category as identity, not just slug, when validating overlap and remove targets', () => {
+      const property = makePropertyWith([['piscina', CharacteristicCategory.AMENIDAD]]);
+
+      // Same slug, different category — not an overlap, not a missing remove
+      expect(() => {
+        property.updateCharacteristics(
+          [],
+          [{ slug: 'piscina', category: CharacteristicCategory.SERVICIO }],
+        );
+      }).toThrow(DomainException); // piscina is not under SERVICIO
+
+      // Add piscina under SERVICIO while it already exists under AMENIDAD — fine (different category)
+      expect(() => {
+        property.updateCharacteristics(
+          [
+            PropertyCharacteristicValue.fromCreate(
+              'Piscina',
+              'piscina',
+              CharacteristicCategory.SERVICIO,
+            ),
+          ],
+          [],
+        );
+      }).not.toThrow();
+    });
+
+    it('should preserve characteristic ids from existing state when adding new ones and removing others', () => {
+      const property = makePropertyWith([['piscina', CharacteristicCategory.AMENIDAD]]);
+      // Simulate that piscina was already persisted with id 42
+      property.syncCharacteristicIds([42]);
+      expect(property.characteristics[0]!.id).toBe(42);
+
+      property.updateCharacteristics(
+        [
+          PropertyCharacteristicValue.fromCreate(
+            'Solarium',
+            'solarium',
+            CharacteristicCategory.AMENIDAD,
+          ),
+        ],
+        [{ slug: 'piscina', category: CharacteristicCategory.AMENIDAD }],
+      );
+
+      const solarium = property.characteristics.find((c) => c.slug === 'solarium');
+      expect(solarium).toBeDefined();
+      // Newly added characteristics keep their null id until the repository syncs
+      expect(solarium!.id).toBeNull();
+      // piscina was removed
+      expect(property.characteristics.find((c) => c.slug === 'piscina')).toBeUndefined();
+    });
+  });
+
   describe('toPrimitives()', () => {
     it('should expose all aggregate fields', () => {
       const address = makeValidAddress();

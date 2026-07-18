@@ -34,11 +34,16 @@ import {
   EditPropertyAddressUseCase,
 } from '../../application/commands/edit-property-address.use-case';
 import {
+  EditPropertyCharacteristicsCommand,
+  EditPropertyCharacteristicsUseCase,
+} from '../../application/commands/edit-property-characteristics.use-case';
+import {
   EditPropertyStatusCommand,
   EditPropertyStatusUseCase,
 } from '../../application/commands/edit-property-status.use-case';
 import { CreatePropertyDto } from '../../application/dto/create-property.dto';
 import { EditPropertyAddressDto } from '../../application/dto/edit-property-address.dto';
+import { EditPropertyCharacteristicsDto } from '../../application/dto/edit-property-characteristics.dto';
 import { EditPropertyStatusDto } from '../../application/dto/edit-property-status.dto';
 import {
   GetPropertyByIdQuery,
@@ -183,6 +188,7 @@ export class PropertiesController {
     private readonly getPropertyByIdUseCase: GetPropertyByIdUseCase,
     private readonly deletePropertyUseCase: DeletePropertyUseCase,
     private readonly editPropertyAddressUseCase: EditPropertyAddressUseCase,
+    private readonly editPropertyCharacteristicsUseCase: EditPropertyCharacteristicsUseCase,
     private readonly editPropertyStatusUseCase: EditPropertyStatusUseCase,
     private readonly listAllPropertiesUseCase: ListAllPropertiesUseCase,
     private readonly listMyPropertiesUseCase: ListMyPropertiesUseCase,
@@ -255,6 +261,18 @@ export class PropertiesController {
       new EditPropertyAddressCommand(id, dto),
     );
     return { message: 'Dirección actualizada con éxito', data: mapProperty(property) };
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Patch(':id/characteristics')
+  async editCharacteristics(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EditPropertyCharacteristicsDto,
+  ): Promise<{ message: string; data: PropertyResponse }> {
+    const property = await this.editPropertyCharacteristicsUseCase.execute(
+      new EditPropertyCharacteristicsCommand(id, dto),
+    );
+    return { message: 'Características actualizadas con éxito', data: mapProperty(property) };
   }
 
   @Roles(UserRole.ADMIN, UserRole.AGENT, UserRole.ADMINISTRATIVE)
